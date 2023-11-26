@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Team game</title>
+</head>
+<script>
+    function init() {
+        const roomId = window.location.href.split("#")[1];
+        const storedUserJson = localStorage.getItem(roomId);
+        let storedUser = JSON.parse(storedUserJson);
+
+        const label = document.getElementById("label");
+        const questionElement = document.getElementById("question");
+
+        const playersDiv = document.getElementById("players");
+        const userInfoDiv = document.getElementById("userInfo");
+        const messageInput = document.getElementById("message");
+        const sendButton = document.getElementById("sendButton");
+        const answer = document.getElementById("answer");
+        const secondsLeftEl = document.getElementById("secondsLeft");
+
+        messageInput.onkeyup = function (event) {
+            if (event.key === "Enter") {
+                send();
+            }
+        }
+
+        setInterval(function () {
+            const stopTimestamp = secondsLeftEl.getAttribute("stopTimestamp");
+            let secondsLeftValue = Math.round(Number(stopTimestamp) - new Date().getTime() / 1000);
+            if (secondsLeftValue <= 0) {
+                secondsLeftValue = 0;
+            }
+            secondsLeftEl.innerHTML = "" + secondsLeftValue;
+        }, 1000);
+
+        function addPlayer(player) {
+            const row = "<tr>" +
+                "<td id='playerCell-" + player + "'>" + player + "</td>" +
+                "<td id='playerAnswerTimeCell-" + player + "'>?</td>" +
+                "<td id='playerAnswerCell-" + player + "'>?</td>" +
+                "</tr>";
+
+            playersDiv.innerHTML += row;
+        }
+
+        function updateChallengeQuestion(id, question, stopTimestamp) {
+            questionElement.innerHTML = question
+            questionElement.setAttribute("challengeId", id)
+            secondsLeftEl.setAttribute("stopTimestamp", stopTimestamp)
+
+            document.getElementById("timeLeftHolder").hidden = false;
+        }
+        sendButton.onclick = send;
+        const socket = new WebSocket("wss://socket.kickabit.com/");
+
+        socket.onopen = function () {
+            if (storedUser != null) {
+                socketSend("joinExisting", storedUser);
+            } else {
+                document.getElementById("connectionInfo").hidden = true;
+                document.getElementById("controls").hidden = false;
+
+                label.innerHTML = "Enter your name:";
+            }
+        };
+
+        socket.onclose = function () {
+            userInfoDiv.innerHTML.replace("🟢", "🟠");
+
+            setTimeout(function () {
+                window.location.reload();
+            }, 1000)
+        };
+
+        socket.onmessage = function (message) {
+            document.getElementById("connectionInfo").hidden = true;
+            document.getElementById("header").hidden = false;
+            document.getElementById("controls").hidden = false;
+            document.getElementById("results").hidden = false;
+
+            const msg = JSON.parse(message.data);
+            console.log(msg);
+
+            if (msg.eventType === "PlayerJoined" && localStorage.getItem(roomId) == null) {
+                const user = {
+                    playerId: msg.playerId,
+                    playerName: msg.playerName
+                };
+                localStorage.setItem(roomId, JSON.stringify(user));
+                storedUser = user;
+            }
+
+            if (msg.eventType === "PlayerJoined") {
+                let c = msg.currentChallenge;
+                updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
+
+                userInfoDiv.innerHTML = "Welcome " + msg.playerName + " 🟢" + "<button id='leaveRoomButton'>Sign out</button>";
+
+                document.getElementById("leaveRoomButton").onclick = function () {
+                    localStorage.removeItem(roomId);
+                    window.location.reload();
+                }
+
+                for (const player of msg.players) {
+                    addPlayer(player);
+                }
+
+                label.innerHTML = "Your answer: ";
+            }
+
+            if (msg.eventType === "OtherPlayerJoined") {
+                if (document.getElementById("playerCell-" + msg.playerName) == null) {
+                    addPlayer(msg.playerName);
+                }
+            }
+
+            if (msg.eventType === "PlayerAnswered") {
+                document.getElementById("playerAnswerCell-" + msg.playerName).innerHTML = "•";
+            }
+
+            if (msg.eventType === "CurrentChallengeUpdated") {
+                updateChallengeQuestion(msg.currentChallenge.challengeId, msg.question, msg.currentChallenge.stopTimestamp);
+            }
+
+            if (msg.eventType === "ResultTablePublished") {
+                for (it of msg.answers) {
+                    if (document.getElementById("playerCell-" + it.playerName) != null) {
+                        document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
+                        document.getElementById("playerAnswerCell-" + it.playerName).innerHTML = it.answer;
+                    }
+                }
+            }
+        };
+
+        function socketSend(action, payload) {
+            const wsMsg = {
+                "action": action,
+                "roomId": roomId,
+                "payload": payload
+            };
+            console.log(wsMsg);
+            socket.send(JSON.stringify(wsMsg));
+        }
+
+        function send() {
+            const inputValue = messageInput.value;
+
+            if (inputValue !== "") {
+                if (storedUser == null) {
+                    socketSend("joinNew", {playerName: inputValue.toLowerCase()});
+                } else {
+                    socketSend("submitAnswer", {
+                        answer: inputValue,
+                        playerId: storedUser.playerId,
+                        timestamp: new Date().toISOString(),
+                        challengeId: questionElement.getAttribute("challengeId")
+                    });
+                    answer.innerHTML = "Your answer: " + inputValue;
+                }
+
+                messageInput.value = "";
+            } else {
+                alert("You must enter a message to be sent!");
+            }
+        }
+    }
+
+    window.onload = init;
+</script>
+<body>
+
+<div id="connectionInfo"><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
+
+<div id="header" hidden>
+<h4 id="userInfo"></h4>
+<h1 id="question"></h1>
+<h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds</span></h3>
+<h3 id="answer"></h3>
+</div>
+
+<div id="controls" hidden>
+    <label id="label" for="message"></label>
+    <input type="text" id="message"/>
+    <button type="button" id="sendButton">Submit</button>
+</div>
+
+<div id="results" hidden>
+    <table>
+        <thead>
+        <tr>
+            <th>Player</th>
+            <th>Time</th>
+            <th>Answer</th>
+        </tr>
+        </thead>
+        <tbody id="players">
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
