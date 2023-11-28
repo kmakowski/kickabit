@@ -193,44 +193,19 @@
             }
         }
 
-        function oauthSignIn() {
-            // Google's OAuth 2.0 endpoint for requesting an access token
-            var oauth2Endpoint = 'https://accounts.google.com/o/oauth2/v2/auth';
+    }
+    function parseJwt (token) {
+        var base64Url = token.split('.')[1];
+        var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
 
-            // Create <form> element to submit parameters to OAuth 2.0 endpoint.
-            var form = document.createElement('form');
-            form.setAttribute('method', 'GET'); // Send as a GET request.
-            form.setAttribute('action', oauth2Endpoint);
-
-            // Parameters to pass to OAuth 2.0 endpoint.
-            var params = {'client_id': '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
-                'redirect_uri': 'https://www.kickabit.com',
-                'response_type': 'token',
-                'scope': 'https://www.googleapis.com/auth/userinfo.profile',
-                'include_granted_scopes': 'true',
-                'state': roomId};
-
-            // Add form parameters as hidden input values.
-            for (var p in params) {
-                var input = document.createElement('input');
-                input.setAttribute('type', 'hidden');
-                input.setAttribute('name', p);
-                input.setAttribute('value', params[p]);
-                form.appendChild(input);
-            }
-
-            // Add form to page and submit it to open the OAuth 2.0 endpoint.
-            document.body.appendChild(form);
-            form.submit();
-        }
+        return JSON.parse(jsonPayload);
     }
 
-    function handleCredentialResponse(googleUser) {
-        const profile = googleUser.getBasicProfile();
-        console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
-        console.log('Name: ' + profile.getName());
-        console.log('Image URL: ' + profile.getImageUrl());
-        console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
+    function handleCredentialResponse(resp) {
+        console.log(parseJwt(resp.credential));
     }
 
     window.onload = init;
@@ -269,8 +244,6 @@
         </tbody>
     </table>
 </div>
-
-<div class="g-signin2" data-onsuccess="onSignIn"></div>
 
 </body>
 </html>
