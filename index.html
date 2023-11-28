@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Team game</title>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id" content="679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com">
 </head>
 <script>
     function init() {
@@ -224,6 +226,13 @@
         document.getElementById("signInWithGoogleButton").onclick = oauthSignIn;
     }
 
+    function onSignIn(googleUser) {
+        const profile = googleUser.getBasicProfile();
+        console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+        console.log('Name: ' + profile.getName());
+        console.log('Image URL: ' + profile.getImageUrl());
+        console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
+    }
 
     window.onload = init;
 </script>
@@ -258,7 +267,7 @@
     </table>
 </div>
 
-<button id="signInWithGoogleButton">Sign in with google</button>
+<div class="g-signin2" data-onsuccess="onSignIn"></div>
 
 </body>
 </html>
