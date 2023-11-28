@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <title>Team game</title>
-    <script src="https://apis.google.com/js/platform.js" async defer></script>
-    <meta name="google-signin-client_id" content="679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com">
 </head>
+
+<body>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
     function init() {
         const hash = window.location.hash.substring(1);
@@ -224,7 +225,7 @@
         }
     }
 
-    function onSignIn(googleUser) {
+    function handleCredentialResponse(googleUser) {
         const profile = googleUser.getBasicProfile();
         console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
         console.log('Name: ' + profile.getName());
@@ -234,7 +235,11 @@
 
     window.onload = init;
 </script>
-<body>
+<div id="g_id_onload"
+     data-client_id="679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com"
+     data-callback="handleCredentialResponse">
+</div>
+<div class="g_id_signin" data-type="standard"></div>
 
 <div id="connectionInfo"><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
 
