@@ -198,8 +198,7 @@
         console.log(parseJwt(resp.credential));
         document.getElementById("googleSignInButton").hidden = true;
 
-        fetch({
-            url: "https://api.kickabit.com/team-game/google-oauth-callback",
+        fetch("https://api.kickabit.com/team-game/google-oauth-callback", {
             method: "POST",
             body: "credential=" + resp.credential
         }).then(function (data){
