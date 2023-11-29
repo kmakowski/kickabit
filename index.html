@@ -9,30 +9,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
     function init() {
-        const hash = window.location.hash.substring(1);
-
-        const hashParams = hash.split('&').reduce(function (res, item) {
-            const parts = item.split('=');
-            res[parts[0]] = parts[1];
-            return res;
-        }, {});
-
-        let roomId = hashParams["roomId"]
-
-        if (roomId == null) {
-            roomId = hashParams["state"]
-        }
-
-        let accessToken = hashParams["access_token"];
-        if (accessToken != null) {
-            fetch("https://www.googleapis.com/auth/userinfo.profile", {
-                headers: {
-                    "Authorization": "Bearer " + accessToken
-                }
-            }).then(function (data) {
-                console.log(data);
-            })
-        }
+        const roomId = window.location.hash.substring(1);
 
         const storedUserJson = localStorage.getItem(roomId);
         let storedUser = JSON.parse(storedUserJson);
