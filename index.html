@@ -201,8 +201,10 @@
         fetch("https://api.kickabit.com/team-game/google-oauth-callback", {
             method: "POST",
             body: "credential=" + resp.credential
-        }).then(function (data){
-            console.log(data.json())
+        }).then(function (r) {
+            r.json().then(function (data) {
+                console.log(data);
+            });
         });
     }
 
