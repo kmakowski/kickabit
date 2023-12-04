@@ -53,17 +53,36 @@
         authInfoDiv.hidden = false;
     }
 
+    function getAuthDetails() {
+        return JSON.parse(localStorage.getItem("authDetails"));
+    }
+
     function init() {
         google.accounts.id.initialize({
             client_id: '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
             callback: handleCredentialResponse
         });
-        const authDetails = JSON.parse(localStorage.getItem("authDetails"));
+        let authDetails = getAuthDetails();
 
         const isAuthenticated = authenticate(authDetails);
 
         if (isAuthenticated) {
             updateAuthInfoDiv();
+            authDetails = getAuthDetails();
+
+            fetch("https://api.kickabit.com/team-game/rooms", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + authDetails.idToken
+                }
+            }).then(function (r) {
+                r.json().then(function (data) {
+                    console.log("Retrieved user rooms: " + data.roomIds);
+                });
+            }).catch(function (c){
+                console.log(c);
+                return false;
+            });
         } else {
             google.accounts.id.prompt();
         }
