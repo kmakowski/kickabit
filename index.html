@@ -8,15 +8,61 @@
 <body>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+
+    function refreshTokenLogin(authDetails) {
+        fetch("https://api.kickabit.com/team-game/refresh-token-login", {
+            method: "POST",
+            body: authDetails.refreshToken
+        }).then(function (r) {
+            r.json().then(function (data) {
+                console.log("Logged in using refresh token");
+                localStorage.setItem("authDetails", JSON.stringify(data))
+                return true;
+            });
+        }).catch(function (c){
+            console.log(c);
+            return false;
+        });
+    }
+
+    function authenticate(authDetails) {
+        const now = new Date().toISOString();
+        const nowMinusMinute = new Date(new Date().getTime() - 60* 1000).toISOString();
+
+        if (authDetails.idTokenExpirationDate > nowMinusMinute) {
+            console.log("id token expired or almost expired")
+
+            if (authDetails.refreshTokenExpirationDate < now) {
+                console.log("refresh Token expired")
+                return false;
+            } else {
+                refreshTokenLogin(authDetails);
+            }
+        } else {
+            return true
+        }
+    }
+
+    function updateAuthInfoDiv() {
+        const authInfoDiv = document.getElementById("authInfo");
+        authInfoDiv.innerHTML = "Authenticated"
+        authInfoDiv.hidden = false;
+    }
+
     function init() {
         google.accounts.id.initialize({
             client_id: '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
-            login_uri: "https://api.kickabit.com/team-game/tokens",
             callback: handleCredentialResponse
         });
-        const parent = document.getElementById('googleSignInButton');
-        google.accounts.id.renderButton(parent, {theme: "filled_blue"});
-        google.accounts.id.prompt();
+        const authDetails = JSON.parse(localStorage.getItem("authDetails"));
+
+        const isAuthenticated = authenticate(authDetails);
+
+        if (isAuthenticated) {
+            updateAuthInfoDiv();
+        } else {
+            google.accounts.id.prompt();
+        }
 
         const roomId = window.location.hash.substring(1);
 
@@ -196,21 +242,23 @@
 
     function handleCredentialResponse(resp) {
         console.log(parseJwt(resp.credential));
-        document.getElementById("googleSignInButton").hidden = true;
+        document.getElementById("authInfo").hidden = false;
 
-        fetch("https://api.kickabit.com/team-game/google-oauth-callback", {
+        fetch("https://api.kickabit.com/team-game/google-login", {
             method: "POST",
-            body: "credential=" + resp.credential
+            body: resp.credential
         }).then(function (r) {
             r.json().then(function (data) {
                 console.log(data);
+                localStorage.setItem("authDetails", JSON.stringify(data));
+                updateAuthInfoDiv()
             });
         });
     }
 
     window.onload = init;
 </script>
-<div id="googleSignInButton"></div>
+<div id="authInfo" hidden></div>
 
 <div id="connectionInfo"><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
 
