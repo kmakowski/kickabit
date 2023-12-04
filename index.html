@@ -27,13 +27,13 @@
 
     function authenticate(authDetails) {
         const now = new Date().toISOString();
-        const nowMinusMinute = new Date(new Date().getTime() - 60* 1000).toISOString();
+        const nowPlusMinute = new Date(new Date().getTime() + 60 * 1000).toISOString();
 
         if (authDetails == null) {
             return false;
         }
 
-        if (authDetails.idTokenExpirationDate > nowMinusMinute) {
+        if (nowPlusMinute > authDetails.idTokenExpirationDate) {
             console.log("id token expired or almost expired")
 
             if (authDetails.refreshTokenExpirationDate < now) {
