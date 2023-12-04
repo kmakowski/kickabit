@@ -29,6 +29,10 @@
         const now = new Date().toISOString();
         const nowMinusMinute = new Date(new Date().getTime() - 60* 1000).toISOString();
 
+        if (authDetails == null) {
+            return false;
+        }
+
         if (authDetails.idTokenExpirationDate > nowMinusMinute) {
             console.log("id token expired or almost expired")
 
