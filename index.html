@@ -71,7 +71,7 @@
             authDetails = getAuthDetails();
 
             fetch("https://api.kickabit.com/team-game/rooms", {
-                method: "POST",
+                method: "GET",
                 headers: {
                     "Authorization": "Bearer " + authDetails.idToken
                 }
