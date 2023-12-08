@@ -83,7 +83,7 @@
                     console.log("Retrieved user rooms: " + data.roomIds);
                     for (const id of data.roomIds) {
                         document.getElementById("roomsList").innerHTML +=
-                            "<a id='join-room-" + id + "' href='" + id + "'>Join room "+ id + "</a>"
+                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room "+ id + "</a>"
                     }
                 });
             }).catch(function (c){
