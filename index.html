@@ -8,15 +8,17 @@
 <body>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
+    const baseUrl = "https://api.kickabit.com/team-game/";
 
     function refreshTokenLogin(authDetails) {
-        fetch("https://api.kickabit.com/team-game/refresh-token-login", {
+        fetch(baseUrl + "refresh-token-login", {
             method: "POST",
             body: authDetails.refreshToken
         }).then(function (r) {
             r.json().then(function (data) {
                 console.log("Logged in using refresh token");
                 localStorage.setItem("authDetails", JSON.stringify(data))
+                updateAuthInfoDiv();
                 return true;
             });
         }).catch(function (c){
@@ -41,6 +43,7 @@
                 return false;
             } else {
                 refreshTokenLogin(authDetails);
+                return false;
             }
         } else {
             return true
@@ -70,7 +73,7 @@
             updateAuthInfoDiv();
             authDetails = getAuthDetails();
 
-            fetch("https://api.kickabit.com/team-game/rooms", {
+            fetch(baseUrl + "rooms", {
                 method: "GET",
                 headers: {
                     "Authorization": "Bearer " + authDetails.idToken
@@ -78,6 +81,10 @@
             }).then(function (r) {
                 r.json().then(function (data) {
                     console.log("Retrieved user rooms: " + data.roomIds);
+                    for (roomId of data.roomIds) {
+                        document.getElementById("roomsList").innerHTML +=
+                            "<button id='join-room-" + roomId + "'>Join room "+ roomId + "</button>"
+                    }
                 });
             }).catch(function (c){
                 console.log(c);
@@ -267,29 +274,30 @@
         console.log(parseJwt(resp.credential));
         document.getElementById("authInfo").hidden = false;
 
-        fetch("https://api.kickabit.com/team-game/google-login", {
+        fetch(baseUrl + "google-login", {
             method: "POST",
             body: resp.credential
         }).then(function (r) {
             r.json().then(function (data) {
                 console.log(data);
                 localStorage.setItem("authDetails", JSON.stringify(data));
-                updateAuthInfoDiv()
+                updateAuthInfoDiv();
             });
         });
     }
 
     window.onload = init;
 </script>
+
 <div id="authInfo" hidden></div>
 
 <div id="connectionInfo"><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
 
 <div id="header" hidden>
-<h4 id="userInfo"></h4>
-<h1 id="question"></h1>
-<h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds</span></h3>
-<h3 id="answer"></h3>
+    <h4 id="userInfo"></h4>
+    <h1 id="question"></h1>
+    <h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds</span></h3>
+    <h3 id="answer"></h3>
 </div>
 
 <div id="controls" hidden>
@@ -310,6 +318,15 @@
         <tbody id="players">
         </tbody>
     </table>
+</div>
+
+<div id="roomControls">
+    <button id="nextQuestionButton">Next</button>
+    <button id="revealResults">Reveal results</button>
+    <button id="createNewRoom">Create new room</button>
+</div>
+<div id="roomsList">
+
 </div>
 
 </body>
