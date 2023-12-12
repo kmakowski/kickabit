@@ -9,30 +9,40 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
     const baseUrl = "https://api.kickabit.com/team-game/";
+    const wsUrl = "wss://socket.kickabit.com/";
+    // const baseUrl = "http://localhost:8080/";
+    // const wsUrl = "ws://localhost:8080/ws";
 
-    function refreshTokenLogin(authDetails) {
+    function refreshTokenLogin(authDetails, onSuccess) {
         fetch(baseUrl + "refresh-token-login", {
             method: "POST",
             body: authDetails.refreshToken
         }).then(function (r) {
             r.json().then(function (data) {
+                if (r.status !== 200) {
+                    return;
+                }
                 console.log("Logged in using refresh token");
                 localStorage.setItem("authDetails", JSON.stringify(data))
                 updateAuthInfoDiv();
-                return true;
+                onSuccess();
             });
-        }).catch(function (c){
-            console.log(c);
-            return false;
         });
     }
 
-    function authenticate(authDetails) {
+    function logout() {
+        localStorage.removeItem("authDetails")
+        document.getElementById("authInfo").hidden = true;
+    }
+
+    function authenticate(onAuthenticated, onGuestUser) {
+        let authDetails = getAuthDetails();
         const now = new Date().toISOString();
         const nowPlusMinute = new Date(new Date().getTime() + 60 * 1000).toISOString();
 
         if (authDetails == null) {
-            return false;
+            onGuestUser();
+            return;
         }
 
         if (nowPlusMinute > authDetails.idTokenExpirationDate) {
@@ -40,19 +50,19 @@
 
             if (authDetails.refreshTokenExpirationDate < now) {
                 console.log("refresh Token expired")
-                return false;
+                onGuestUser();
             } else {
-                refreshTokenLogin(authDetails);
-                return false;
+                refreshTokenLogin(authDetails, onAuthenticated);
             }
         } else {
-            return true
+            onAuthenticated()
         }
     }
 
     function updateAuthInfoDiv() {
         const authInfoDiv = document.getElementById("authInfo");
-        authInfoDiv.innerHTML = "Authenticated"
+        const authDisplayName = document.getElementById("authDisplayName");
+        authDisplayName.innerHTML = getAuthDetails().displayName
         authInfoDiv.hidden = false;
     }
 
@@ -60,41 +70,53 @@
         return JSON.parse(localStorage.getItem("authDetails"));
     }
 
+    function getRoomId() {
+        const roomId = window.location.hash.substring(1);
+        if (roomId === "") {
+            return null;
+        } else {
+            return roomId;
+        }
+    }
+
     function init() {
         google.accounts.id.initialize({
             client_id: '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
             callback: handleCredentialResponse
         });
-        let authDetails = getAuthDetails();
 
-        const isAuthenticated = authenticate(authDetails);
-
-        if (isAuthenticated) {
+        authenticate(function () {
             updateAuthInfoDiv();
-            authDetails = getAuthDetails();
 
             fetch(baseUrl + "rooms", {
                 method: "GET",
                 headers: {
-                    "Authorization": "Bearer " + authDetails.idToken
+                    "Authorization": "Bearer " + getAuthDetails().idToken
                 }
             }).then(function (r) {
                 r.json().then(function (data) {
+                    if (r.status !== 200) {
+                        return
+                    }
                     console.log("Retrieved user rooms: " + data.roomIds);
                     for (const id of data.roomIds) {
                         document.getElementById("roomsList").innerHTML +=
                             "<a id='join-room-" + id + "' href='#" + id + "'>Join room "+ id + "</a>"
                     }
+                    document.getElementById("roomsList").hidden = false;
                 });
-            }).catch(function (c){
-                console.log(c);
-                return false;
             });
-        } else {
+        }, function () {
+            console.log("missing auth token")
             google.accounts.id.prompt();
-        }
+        });
 
-        const roomId = window.location.hash.substring(1);
+        const roomId = getRoomId();
+
+        if (roomId == null) {
+            console.log("No room selected")
+            return
+        }
 
         const storedUserJson = localStorage.getItem(roomId);
         let storedUser = JSON.parse(storedUserJson);
@@ -113,6 +135,37 @@
             if (event.key === "Enter") {
                 send();
             }
+        }
+
+        document.getElementById("nextQuestionButton").onclick = function () {
+            fetch(baseUrl + "rooms/" + roomId + "/set-next-challenge", {
+                method: "POST",
+                body: JSON.stringify({"secondsCount": 30}),
+                headers: {
+                    "Authorization": "Bearer " + getAuthDetails().idToken
+                }
+            }).then(function (r) {
+                r.json().then(function () {
+                    if (r.status !== 200) {
+                        return false;
+                    }
+                });
+            });
+        }
+
+        document.getElementById("revealResults").onclick = function () {
+            fetch(baseUrl + "rooms/" + roomId + "/reveal-answers", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + getAuthDetails().idToken
+                }
+            }).then(function (r) {
+                r.json().then(function () {
+                    if (r.status !== 200) {
+                        return false;
+                    }
+                });
+            });
         }
 
         setInterval(function () {
@@ -141,23 +194,22 @@
 
             document.getElementById("timeLeftHolder").hidden = false;
         }
+
         sendButton.onclick = send;
-        const socket = new WebSocket("wss://socket.kickabit.com/");
+        const socket = new WebSocket(wsUrl);
 
         socket.onopen = function () {
             if (storedUser != null) {
                 socketSend("joinExisting", storedUser);
             } else {
                 document.getElementById("connectionInfo").hidden = true;
-                document.getElementById("controls").hidden = false;
 
                 label.innerHTML = "Enter your name:";
+                document.getElementById("controls").hidden = false;
             }
         };
 
         socket.onclose = function () {
-            userInfoDiv.innerHTML.replace("🟢", "🟠");
-
             setTimeout(function () {
                 window.location.reload();
             }, 1000)
@@ -166,7 +218,6 @@
         socket.onmessage = function (message) {
             document.getElementById("connectionInfo").hidden = true;
             document.getElementById("header").hidden = false;
-            document.getElementById("controls").hidden = false;
             document.getElementById("results").hidden = false;
 
             if (message.data === "") {
@@ -188,12 +239,22 @@
             if (msg.eventType === "PlayerJoined") {
                 let c = msg.currentChallenge;
                 updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
+                document.getElementById("controls").hidden = false;
 
-                userInfoDiv.innerHTML = "Welcome " + msg.playerName + " 🟢" + "<button id='leaveRoomButton'>Sign out</button>";
+                let playerNameSpan = document.getElementById("playerName");
+                let playerNameInput = document.getElementById("playerNameInput");
 
-                document.getElementById("leaveRoomButton").onclick = function () {
-                    localStorage.removeItem(roomId);
-                    window.location.reload();
+                playerNameSpan.innerHTML = msg.playerName;
+
+                playerNameSpan.onmouseover = function () {
+                    playerNameSpan.hidden = true;
+                    playerNameInput.value = playerNameSpan.innerText
+                    playerNameInput.hidden = false;
+                }
+                playerNameInput.onmouseleave = function () {
+                    playerNameSpan.hidden = false;
+                    playerNameSpan.innerHTML = playerNameInput.value
+                    playerNameInput.hidden = true;
                 }
 
                 for (const player of msg.players) {
@@ -201,6 +262,10 @@
                 }
 
                 label.innerHTML = "Your answer: ";
+
+                if (getAuthDetails() != null) {
+                    document.getElementById("roomControls").hidden = false;
+                }
             }
 
             if (msg.eventType === "OtherPlayerJoined") {
@@ -258,8 +323,8 @@
                 alert("You must enter a message to be sent!");
             }
         }
-
     }
+
     function parseJwt (token) {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -279,6 +344,9 @@
             body: resp.credential
         }).then(function (r) {
             r.json().then(function (data) {
+                if (r.status !== 200) {
+                    return;
+                }
                 console.log(data);
                 localStorage.setItem("authDetails", JSON.stringify(data));
                 updateAuthInfoDiv();
@@ -286,15 +354,19 @@
         });
     }
 
+    window.onhashchange = function () {
+        window.location.reload();
+    }
+
     window.onload = init;
 </script>
 
-<div id="authInfo" hidden></div>
+<div id="authInfo" hidden>Authenticated as: <span id="authDisplayName"></span><button id="logoutBtn" onclick="logout()">Logout</button></div>
 
-<div id="connectionInfo"><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
+<div id="connectionInfo" hidden><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
 
 <div id="header" hidden>
-    <h4 id="userInfo"></h4>
+    <h4 id="userInfo">Welcome <span id="playerName"></span><input type="text" id="playerNameInput" hidden/></h4>
     <h1 id="question"></h1>
     <h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds</span></h3>
     <h3 id="answer"></h3>
@@ -320,12 +392,11 @@
     </table>
 </div>
 
-<div id="roomControls">
+<div id="roomControls" hidden>
     <button id="nextQuestionButton">Next</button>
     <button id="revealResults">Reveal results</button>
-    <button id="createNewRoom">Create new room</button>
 </div>
-<div id="roomsList">
+<div id="roomsList" hidden>
 
 </div>
 
