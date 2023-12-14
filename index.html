@@ -79,6 +79,35 @@
         }
     }
 
+    function updateRoomsList() {
+        fetch(baseUrl + "rooms", {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + getAuthDetails().idToken
+            }
+        }).then(function (r) {
+            r.json().then(function (data) {
+                if (r.status !== 200) {
+                    return
+                }
+                console.log("Retrieved user rooms: " + data.roomIds);
+
+                if (getRoomId() == null) {
+                    for (const id of data.roomIds) {
+                        document.getElementById("roomsList").innerHTML +=
+                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a>"
+                    }
+                }
+            });
+        });
+    }
+    function updatePlayerName(playerId, playerName) {
+        fetch(baseUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
+            method: "PUT",
+            body: JSON.stringify({playerName: playerName})
+        })
+    }
+
     function init() {
         google.accounts.id.initialize({
             client_id: '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
@@ -87,25 +116,7 @@
 
         authenticate(function () {
             updateAuthInfoDiv();
-
-            fetch(baseUrl + "rooms", {
-                method: "GET",
-                headers: {
-                    "Authorization": "Bearer " + getAuthDetails().idToken
-                }
-            }).then(function (r) {
-                r.json().then(function (data) {
-                    if (r.status !== 200) {
-                        return
-                    }
-                    console.log("Retrieved user rooms: " + data.roomIds);
-                    for (const id of data.roomIds) {
-                        document.getElementById("roomsList").innerHTML +=
-                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room "+ id + "</a>"
-                    }
-                    document.getElementById("roomsList").hidden = false;
-                });
-            });
+            updateRoomsList();
         }, function () {
             console.log("missing auth token")
             google.accounts.id.prompt();
@@ -113,10 +124,14 @@
 
         const roomId = getRoomId();
 
+        document.getElementById("roomsList").hidden = false;
+
         if (roomId == null) {
             console.log("No room selected")
             return
         }
+
+        document.getElementById("roomsList").hidden = true;
 
         const storedUserJson = localStorage.getItem(roomId);
         let storedUser = JSON.parse(storedUserJson);
@@ -125,7 +140,6 @@
         const questionElement = document.getElementById("question");
 
         const playersDiv = document.getElementById("players");
-        const userInfoDiv = document.getElementById("userInfo");
         const messageInput = document.getElementById("message");
         const sendButton = document.getElementById("sendButton");
         const answer = document.getElementById("answer");
@@ -182,6 +196,7 @@
                 "<td id='playerCell-" + player + "'>" + player + "</td>" +
                 "<td id='playerAnswerTimeCell-" + player + "'>?</td>" +
                 "<td id='playerAnswerCell-" + player + "'>?</td>" +
+                "<td id='playerScoreCell-" + player + "' hidden>?</td>" +
                 "</tr>";
 
             playersDiv.innerHTML += row;
@@ -236,6 +251,19 @@
                 storedUser = user;
             }
 
+            function updateName(playerNameSpan, playerNameInput) {
+                return function () {
+                    playerNameSpan.hidden = false;
+                    if (playerNameSpan.innerHTML !== playerNameInput.value) {
+                        playerNameSpan.innerHTML = playerNameInput.value
+
+                        const playerId = JSON.parse(localStorage.getItem(roomId)).playerId
+                        updatePlayerName(playerId, playerNameInput.value)
+                    }
+                    playerNameInput.hidden = true;
+                };
+            }
+
             if (msg.eventType === "PlayerJoined") {
                 let c = msg.currentChallenge;
                 updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
@@ -251,11 +279,14 @@
                     playerNameInput.value = playerNameSpan.innerText
                     playerNameInput.hidden = false;
                 }
-                playerNameInput.onmouseleave = function () {
-                    playerNameSpan.hidden = false;
-                    playerNameSpan.innerHTML = playerNameInput.value
-                    playerNameInput.hidden = true;
+
+                playerNameInput.onkeyup = function (event) {
+                    if (event.key === "Enter") {
+                        updateName(playerNameSpan, playerNameInput)
+                    }
                 }
+
+                playerNameInput.onmouseleave = updateName(playerNameSpan, playerNameInput)
 
                 for (const player of msg.players) {
                     addPlayer(player);
@@ -287,7 +318,21 @@
                     if (document.getElementById("playerCell-" + it.playerName) != null) {
                         document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
                         document.getElementById("playerAnswerCell-" + it.playerName).innerHTML = it.answer;
+                        document.getElementById("playerScoreCell-" + it.playerName).innerHTML = it.score;
+                        document.getElementById("playerScoreCell-" + it.playerName).hidden = false;
+                        document.getElementById("scoreTableHeader").hidden = false;
                     }
+                }
+            }
+
+            if (msg.eventType === "PlayerNameUpdated") {
+                let playerCell = document.getElementById("playerCell-" + msg.oldName);
+                if (playerCell != null) {
+                    playerCell.innerHTML = msg.newName
+                    playerCell.id = "playerCell-" + msg.newName
+                    document.getElementById("playerAnswerTimeCell-" + msg.oldName).id = "playerAnswerTimeCell-" + msg.newName
+                    document.getElementById("playerAnswerCell-" + msg.oldName).id = "playerAnswerCell-" + msg.newName;
+                    document.getElementById("playerScoreCell-" + msg.oldName).id = "playerScoreCell-" + msg.newName;
                 }
             }
         };
@@ -350,6 +395,7 @@
                 console.log(data);
                 localStorage.setItem("authDetails", JSON.stringify(data));
                 updateAuthInfoDiv();
+                updateRoomsList();
             });
         });
     }
@@ -385,6 +431,7 @@
             <th>Player</th>
             <th>Time</th>
             <th>Answer</th>
+            <th id="scoreTableHeader" hidden>Score</th>
         </tr>
         </thead>
         <tbody id="players">
