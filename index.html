@@ -33,6 +33,7 @@
     function logout() {
         localStorage.removeItem("authDetails")
         document.getElementById("authInfo").hidden = true;
+        updateRoomControls();
     }
 
     function authenticate(onAuthenticated, onGuestUser) {
@@ -106,6 +107,10 @@
             method: "PUT",
             body: JSON.stringify({playerName: playerName})
         })
+    }
+
+    function updateRoomControls() {
+        document.getElementById("roomControls").hidden = getAuthDetails() == null;
     }
 
     function init() {
@@ -293,10 +298,7 @@
                 }
 
                 label.innerHTML = "Your answer: ";
-
-                if (getAuthDetails() != null) {
-                    document.getElementById("roomControls").hidden = false;
-                }
+                updateRoomControls();
             }
 
             if (msg.eventType === "OtherPlayerJoined") {
@@ -396,6 +398,9 @@
                 localStorage.setItem("authDetails", JSON.stringify(data));
                 updateAuthInfoDiv();
                 updateRoomsList();
+                if (getRoomId() != null) {
+                    updateRoomControls();
+                }
             });
         });
     }
