@@ -8,13 +8,16 @@
 <body>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-    const baseUrl = "https://api.kickabit.com/team-game/";
-    const wsUrl = "wss://socket.kickabit.com/ws";
-    //const baseUrl = "http://localhost:8080/";
-    //const wsUrl = "ws://localhost:8080/ws";
+    let apiUrl = "https://api.kickabit.com/team-game/";
+    let wsUrl = "wss://socket.kickabit.com/ws";
+
+    if (window.location.hostname === "localhost") {
+        apiUrl = "http://localhost:8080/";
+        wsUrl = "ws://localhost:8080/ws";
+    }
 
     function refreshTokenLogin(authDetails, onSuccess) {
-        fetch(baseUrl + "refresh-token-login", {
+        fetch(apiUrl + "refresh-token-login", {
             method: "POST",
             body: authDetails.refreshToken
         }).then(function (r) {
@@ -41,6 +44,7 @@
         const now = new Date().toISOString();
         const nowPlusMinute = new Date(new Date().getTime() + 60 * 1000).toISOString();
 
+        console.log("auth details: " + authDetails)
         if (authDetails == null) {
             onGuestUser();
             return;
@@ -81,7 +85,7 @@
     }
 
     function updateRoomsList() {
-        fetch(baseUrl + "rooms", {
+        fetch(apiUrl + "rooms", {
             method: "GET",
             headers: {
                 "Authorization": "Bearer " + getAuthDetails().idToken
@@ -103,7 +107,7 @@
         });
     }
     function updatePlayerName(playerId, playerName) {
-        fetch(baseUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
+        fetch(apiUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
             method: "PUT",
             body: JSON.stringify({playerName: playerName})
         })
@@ -157,7 +161,7 @@
         }
 
         document.getElementById("nextQuestionButton").onclick = function () {
-            fetch(baseUrl + "rooms/" + roomId + "/set-next-challenge", {
+            fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
                 method: "POST",
                 body: JSON.stringify({"secondsCount": 30}),
                 headers: {
@@ -173,7 +177,7 @@
         }
 
         document.getElementById("revealResults").onclick = function () {
-            fetch(baseUrl + "rooms/" + roomId + "/reveal-answers", {
+            fetch(apiUrl + "rooms/" + roomId + "/reveal-answers", {
                 method: "POST",
                 headers: {
                     "Authorization": "Bearer " + getAuthDetails().idToken
@@ -386,7 +390,7 @@
         console.log(parseJwt(resp.credential));
         document.getElementById("authInfo").hidden = false;
 
-        fetch(baseUrl + "google-login", {
+        fetch(apiUrl + "google-login", {
             method: "POST",
             body: resp.credential
         }).then(function (r) {
