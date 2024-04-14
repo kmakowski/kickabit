@@ -179,6 +179,7 @@
                     }
                 });
             });
+            sendButton.disabled = true; 
         }
 
         setInterval(function () {
@@ -357,6 +358,7 @@
                         challengeId: questionElement.getAttribute("challengeId")
                     });
                     answer.innerHTML = "Your answer: " + inputValue;
+                  sendButton.innerHTML = "submit another";
                 }
 
                 messageInput.value = "";
