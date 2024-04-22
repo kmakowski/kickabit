@@ -9,11 +9,11 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
     let apiUrl = "https://api.kickabit.com/team-game/";
-    let wsUrl = "wss://socket.kickabit.com/ws";
+    let wsBaseUrl = "wss://socket.kickabit.com/ws";
 
     if (window.location.hostname === "localhost") {
         apiUrl = "http://localhost:8080/";
-        wsUrl = "ws://localhost:8080/ws";
+        wsBaseUrl = "ws://localhost:8080/ws";
     }
 
     function refreshTokenLogin(authDetails, onSuccess) {
@@ -219,155 +219,164 @@
             document.getElementById("timeLeftHolder").hidden = false;
         }
 
-        sendButton.onclick = send;
-        const socket = new WebSocket(wsUrl);
+        let wsUrl = wsBaseUrl + "?roomId=" + roomId;
 
-        socket.onopen = function () {
-            if (storedUser != null) {
-                socketSend("joinExisting", storedUser);
-            } else {
-                document.getElementById("connectionInfo").hidden = true;
+        if (storedUser != null) {
+            wsUrl = wsUrl + "&playerId=" + storedUser.playerId
+            createWebSocket()
 
-                label.innerHTML = "Enter your name:";
-                document.getElementById("controls").hidden = false;
-            }
-        };
-
-        socket.onclose = function () {
-            setTimeout(function () {
-                window.location.reload();
-            }, 1000)
-        };
-
-        socket.onmessage = function (message) {
+            sendButton.onclick = send;
+        } else {
             document.getElementById("connectionInfo").hidden = true;
-            document.getElementById("header").hidden = false;
-            document.getElementById("results").hidden = false;
 
-            if (message.data === "") {
-                return
+            label.innerHTML = "Enter your name:";
+            document.getElementById("controls").hidden = false;
+            sendButton.onclick = function () {
+                let playerName = messageInput.value;
+                wsUrl = wsUrl + "&playerName=" + encodeURIComponent(playerName)
+
+                createWebSocket()
+                sendButton.onclick = send;
             }
+        }
 
-            const msg = JSON.parse(message.data);
-            console.log(msg);
+        function createWebSocket() {
+            const socket = new WebSocket(wsUrl);
 
-            if (msg.eventType === "PlayerJoined" && localStorage.getItem(roomId) == null) {
-                const user = {
-                    playerId: msg.playerId,
-                    playerName: msg.playerName
-                };
-                localStorage.setItem(roomId, JSON.stringify(user));
-                storedUser = user;
-            }
-
-            function updateName(playerNameSpan, playerNameInput) {
-                return function () {
-                    playerNameSpan.hidden = false;
-                    if (playerNameSpan.innerHTML !== playerNameInput.value) {
-                        playerNameSpan.innerHTML = playerNameInput.value
-
-                        const playerId = JSON.parse(localStorage.getItem(roomId)).playerId
-                        updatePlayerName(playerId, playerNameInput.value)
-                    }
-                    playerNameInput.hidden = true;
-                };
-            }
-
-            if (msg.eventType === "PlayerJoined") {
-                let c = msg.currentChallenge;
-                updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
-                document.getElementById("controls").hidden = false;
-
-                let playerNameSpan = document.getElementById("playerName");
-                let playerNameInput = document.getElementById("playerNameInput");
-
-                playerNameSpan.innerHTML = msg.playerName;
-
-                playerNameSpan.onmouseover = function () {
-                    playerNameSpan.hidden = true;
-                    playerNameInput.value = playerNameSpan.innerText
-                    playerNameInput.hidden = false;
-                }
-
-                playerNameInput.onkeyup = function (event) {
-                    if (event.key === "Enter") {
-                        updateName(playerNameSpan, playerNameInput)
-                    }
-                }
-
-                playerNameInput.onmouseleave = updateName(playerNameSpan, playerNameInput)
-
-                for (const player of msg.players) {
-                    addPlayer(player);
-                }
-
-                label.innerHTML = "Your answer: ";
-                updateRoomControls();
-            }
-
-            if (msg.eventType === "OtherPlayerJoined") {
-                if (document.getElementById("playerCell-" + msg.playerName) == null) {
-                    addPlayer(msg.playerName);
-                }
-            }
-
-            if (msg.eventType === "PlayerAnswered") {
-                document.getElementById("playerAnswerCell-" + msg.playerName).innerHTML = "•";
-            }
-
-            if (msg.eventType === "CurrentChallengeUpdated") {
-                updateChallengeQuestion(msg.currentChallenge.challengeId, msg.question, msg.currentChallenge.stopTimestamp);
-            }
-
-            if (msg.eventType === "ResultTablePublished") {
-                for (it of msg.answers) {
-                    if (document.getElementById("playerCell-" + it.playerName) != null) {
-                        document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
-                        document.getElementById("playerAnswerCell-" + it.playerName).innerHTML = it.answer;
-                        document.getElementById("playerScoreCell-" + it.playerName).innerHTML = it.score;
-                        document.getElementById("playerScoreCell-" + it.playerName).hidden = false;
-                        document.getElementById("scoreTableHeader").hidden = false;
-                    }
-                }
-            }
-
-            if (msg.eventType === "PlayerNameUpdated") {
-                let playerCell = document.getElementById("playerCell-" + msg.oldName);
-                if (playerCell != null) {
-                    playerCell.innerHTML = msg.newName
-                    playerCell.id = "playerCell-" + msg.newName
-                    document.getElementById("playerAnswerTimeCell-" + msg.oldName).id = "playerAnswerTimeCell-" + msg.newName
-                    document.getElementById("playerAnswerCell-" + msg.oldName).id = "playerAnswerCell-" + msg.newName;
-                    document.getElementById("playerScoreCell-" + msg.oldName).id = "playerScoreCell-" + msg.newName;
-                }
-            }
-        };
-
-        function socketSend(action, payload) {
-            const wsMsg = {
-                "action": action,
-                "roomId": roomId,
-                "payload": payload
+            socket.onopen = function () {
+                console.log("WS opened")
             };
-            console.log(wsMsg);
-            socket.send(JSON.stringify(wsMsg));
+
+            socket.onclose = function () {
+                setTimeout(function () {
+                    window.location.reload();
+                }, 1000)
+            };
+
+            socket.onmessage = function (message) {
+                document.getElementById("connectionInfo").hidden = true;
+                document.getElementById("header").hidden = false;
+                document.getElementById("results").hidden = false;
+
+                if (message.data === "") {
+                    return
+                }
+
+                const msg = JSON.parse(message.data);
+                console.log(msg);
+
+                if (msg.eventType === "PlayerJoined" && localStorage.getItem(roomId) == null) {
+                    const user = {
+                        playerId: msg.playerId,
+                        playerName: msg.playerName
+                    };
+                    console.log("Received playerId " + msg.playerId)
+                    localStorage.setItem(roomId, JSON.stringify(user));
+                    storedUser = user;
+                }
+
+                function updateName(playerNameSpan, playerNameInput) {
+                    return function () {
+                        playerNameSpan.hidden = false;
+                        if (playerNameSpan.innerHTML !== playerNameInput.value) {
+                            playerNameSpan.innerHTML = playerNameInput.value
+
+                            const playerId = JSON.parse(localStorage.getItem(roomId)).playerId
+                            updatePlayerName(playerId, playerNameInput.value)
+                        }
+                        playerNameInput.hidden = true;
+                    };
+                }
+
+                if (msg.eventType === "PlayerJoined") {
+                    let c = msg.currentChallenge;
+                    updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
+                    document.getElementById("controls").hidden = false;
+
+                    let playerNameSpan = document.getElementById("playerName");
+                    let playerNameInput = document.getElementById("playerNameInput");
+
+                    playerNameSpan.innerHTML = msg.playerName;
+
+                    playerNameSpan.onmouseover = function () {
+                        playerNameSpan.hidden = true;
+                        playerNameInput.value = playerNameSpan.innerText
+                        playerNameInput.hidden = false;
+                    }
+
+                    playerNameInput.onkeyup = function (event) {
+                        if (event.key === "Enter") {
+                            updateName(playerNameSpan, playerNameInput)
+                        }
+                    }
+
+                    playerNameInput.onmouseleave = updateName(playerNameSpan, playerNameInput)
+
+                    for (const player of msg.players) {
+                        addPlayer(player);
+                    }
+
+                    label.innerHTML = "Your answer: ";
+                    updateRoomControls();
+                }
+
+                if (msg.eventType === "OtherPlayerJoined") {
+                    if (document.getElementById("playerCell-" + msg.playerName) == null) {
+                        addPlayer(msg.playerName);
+                    }
+                }
+
+                if (msg.eventType === "PlayerAnswered") {
+                    document.getElementById("playerAnswerCell-" + msg.playerName).innerHTML = "•";
+                }
+
+                if (msg.eventType === "CurrentChallengeUpdated") {
+                    updateChallengeQuestion(msg.currentChallenge.challengeId, msg.question, msg.currentChallenge.stopTimestamp);
+                }
+
+                if (msg.eventType === "ResultTablePublished") {
+                    for (it of msg.answers) {
+                        if (document.getElementById("playerCell-" + it.playerName) != null) {
+                            document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
+                            document.getElementById("playerAnswerCell-" + it.playerName).innerHTML = it.answer;
+                            document.getElementById("playerScoreCell-" + it.playerName).innerHTML = it.score;
+                            document.getElementById("playerScoreCell-" + it.playerName).hidden = false;
+                            document.getElementById("scoreTableHeader").hidden = false;
+                        }
+                    }
+                }
+
+                if (msg.eventType === "PlayerNameUpdated") {
+                    let playerCell = document.getElementById("playerCell-" + msg.oldName);
+                    if (playerCell != null) {
+                        playerCell.innerHTML = msg.newName
+                        playerCell.id = "playerCell-" + msg.newName
+                        document.getElementById("playerAnswerTimeCell-" + msg.oldName).id = "playerAnswerTimeCell-" + msg.newName
+                        document.getElementById("playerAnswerCell-" + msg.oldName).id = "playerAnswerCell-" + msg.newName;
+                        document.getElementById("playerScoreCell-" + msg.oldName).id = "playerScoreCell-" + msg.newName;
+                    }
+                }
+            };
         }
 
         function send() {
             const inputValue = messageInput.value;
 
             if (inputValue !== "") {
-                if (storedUser == null) {
-                    socketSend("joinNew", {playerName: inputValue.toLowerCase()});
-                } else {
-                    socketSend("submitAnswer", {
-                        answer: inputValue,
+                fetch(apiUrl + "rooms/" + roomId + "/answers", {
+                    method: "POST",
+                    body: JSON.stringify({
                         playerId: storedUser.playerId,
-                        timestamp: new Date().toISOString(),
+                        answer: inputValue,
                         challengeId: questionElement.getAttribute("challengeId")
-                    });
-                    answer.innerHTML = "Your answer: " + inputValue;
-                }
+                    })
+                }).then(function (r) {
+                    if (r.ok) {
+                        answer.innerHTML = "Your answer: " + inputValue;
+
+                        console.log("Answer sent!")
+                    }
+                })
 
                 messageInput.value = "";
             } else {
