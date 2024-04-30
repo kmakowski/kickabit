@@ -90,7 +90,7 @@
                 if (getRoomId() == null) {
                     for (const id of data.roomIds) {
                         document.getElementById("roomsList").innerHTML +=
-                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a>"
+                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>"
                     }
                 }
             });
