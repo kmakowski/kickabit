@@ -22,6 +22,12 @@
             });
         });
     }
+  function deleteRoom(id) {
+    const response = await fetch(apiUrl + "/team-game/rooms/" + id, {
+      method: "DELETE",
+    });
+
+  }
 
     function logout() {
         localStorage.removeItem("authDetails")
