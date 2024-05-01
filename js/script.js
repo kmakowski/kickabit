@@ -22,9 +22,11 @@
             });
         });
     }
-  function deleteRoom(id) {
-    const response = await fetch(apiUrl + "/team-game/rooms/" + id, {
+  async function deleteRoom(id) {
+    const response = await fetch(apiUrl + "team-game/rooms/" + id, {
       method: "DELETE",
+      mode: "cors",
+      cache: "no-cache",
     });
   }
 
