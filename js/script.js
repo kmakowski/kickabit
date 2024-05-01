@@ -26,7 +26,6 @@
     const response = await fetch(apiUrl + "/team-game/rooms/" + id, {
       method: "DELETE",
     });
-
   }
 
     function logout() {
@@ -94,10 +93,15 @@
                 console.log("Retrieved user rooms: " + data.roomIds);
 
                 if (getRoomId() == null) {
-                    for (const id of data.roomIds) {
+                      let deleteButtons = [];
+                      data.roomIds.forEach((id, i) => {
                         document.getElementById("roomsList").innerHTML +=
-                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>"
-                    }
+                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>";
+                        deleteButtons[i] = document.getElementById("delete-room-" + id);
+                        deleteButtons[i].addEventListener("click", () => {
+                           deleteRoom(id)
+                        })
+                    })
                 }
             });
         });
