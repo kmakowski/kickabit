@@ -1,6 +1,8 @@
     let apiUrl = "https://api.kickabit.com/team-game/";
     let wsBaseUrl = "wss://socket.kickabit.com/ws";
 
+    const roomCreationMenu = document.querySelector("#roomCreation");
+
     if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
         apiUrl = "http://localhost:8080/";
         wsBaseUrl = "ws://localhost:8080/ws";
@@ -30,9 +32,23 @@
     });
   }
 
+  function showRoomCreationMenu() {
+    const textbox = document.querySelector("#newRoomName");
+    const createBtn = document.querySelector("#createNewRoom");
+    
+    roomCreationMenu.hidden = false;
+
+    createBtn.addEventListener("click", () => {
+      createRoom(textbox.innerHTML);
+      console.log(textbox.innerHTML);
+    })
+  }
+
     function logout() {
         localStorage.removeItem("authDetails")
         document.getElementById("authInfo").hidden = true;
+        roomCreationMenu.hidden = true;
+        
         updateRoomControls();
     }
 
@@ -66,6 +82,7 @@
         const authDisplayName = document.getElementById("authDisplayName");
         authDisplayName.innerHTML = getAuthDetails().displayName
         authInfoDiv.hidden = false;
+        roomCreationMenu.hidden = false;
     }
 
     function getAuthDetails() {
@@ -410,6 +427,7 @@
     function handleCredentialResponse(resp) {
         console.log(parseJwt(resp.credential));
         document.getElementById("authInfo").hidden = false;
+        roomCreationMenu.hidden = false;
 
         fetch(apiUrl + "google-login", {
             method: "POST",
