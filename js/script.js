@@ -22,6 +22,14 @@
             });
         });
     }
+  async function deleteRoom(id) {
+    const response = await fetch(apiUrl + "rooms/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + getAuthDetails().idToken
+        }
+    });
+  }
 
     function logout() {
         localStorage.removeItem("authDetails")
@@ -90,7 +98,12 @@
                 if (getRoomId() == null) {
                     for (const id of data.roomIds) {
                         document.getElementById("roomsList").innerHTML +=
-                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>"
+                            "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>";
+                    }
+                    for (const id of data.roomIds) {
+                        document.getElementById("delete-room-" + id).onclick = function () {
+                            deleteRoom(id)
+                        }
                     }
                 }
             });
