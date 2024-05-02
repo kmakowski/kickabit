@@ -39,8 +39,8 @@
     roomCreationMenu.hidden = false;
 
     createBtn.addEventListener("click", () => {
-      createRoom(textbox.innerHTML);
-      console.log(textbox.innerHTML);
+      createRoom(textbox.value);
+      console.log(textbox.value);
     })
   }
 
@@ -127,12 +127,14 @@
     }
 
     function createRoom(name) {
-      fetch(apiUrl + "/team-game/rooms", {
-        method: "POST",
-        body: {
-          "name": name,
-        }
-      });
+      if (name !== '') {
+        fetch(apiUrl + "/team-game/rooms", {
+          method: "POST",
+          body: JSON.stringify({ "name": name })
+      })
+      } else {
+        alert("Room is he who must be named.")
+      };
     } 
 
     function updatePlayerName(playerId, playerName) {
