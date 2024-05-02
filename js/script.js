@@ -128,7 +128,7 @@
 
     function createRoom(name) {
       if (name !== '') {
-        fetch(apiUrl + "/team-game/rooms", {
+        fetch(apiUrl + "rooms", {
           method: "POST",
           body: JSON.stringify({ "name": name })
       })
@@ -454,4 +454,5 @@
         window.location.reload();
     }
 
+    showRoomCreationMenu()
     window.onload = init;
