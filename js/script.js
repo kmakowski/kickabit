@@ -108,16 +108,6 @@
             });
         });
     }
-
-    function createRoom(name) {
-      fetch(apiUrl + "/team-game/rooms", {
-        method: "POST",
-        body: {
-          "name": name,
-        }
-      });
-    } 
-
     function updatePlayerName(playerId, playerName) {
         fetch(apiUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
             method: "PUT",
