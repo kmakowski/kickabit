@@ -23,10 +23,11 @@
         });
     }
   async function deleteRoom(id) {
-    const response = await fetch(apiUrl + "team-game/rooms/" + id, {
-      method: "DELETE",
-      mode: "cors",
-      cache: "no-cache",
+    const response = await fetch(apiUrl + "rooms/" + id, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + getAuthDetails().idToken
+        }
     });
   }
 
@@ -95,15 +96,15 @@
                 console.log("Retrieved user rooms: " + data.roomIds);
 
                 if (getRoomId() == null) {
-                      let deleteButtons = [];
-                      data.roomIds.forEach((id, i) => {
+                    for (const id of data.roomIds) {
                         document.getElementById("roomsList").innerHTML +=
                             "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>";
-                        deleteButtons[i] = document.getElementById("delete-room-" + id);
-                        deleteButtons[i].addEventListener("click", () => {
-                           deleteRoom(id)
-                        })
-                    })
+                    }
+                    for (const id of data.roomIds) {
+                        document.getElementById("delete-room-" + id).onclick = function () {
+                            deleteRoom(id)
+                        }
+                    }
                 }
             });
         });
