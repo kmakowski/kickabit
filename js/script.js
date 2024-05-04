@@ -1,7 +1,15 @@
-    let apiUrl = "https://api.kickabit.com/team-game/";
-    let wsBaseUrl = "wss://socket.kickabit.com/ws";
+let apiUrl = "https://api.kickabit.com/team-game/";
+let wsBaseUrl = "wss://socket.kickabit.com/ws";
 
-    const roomCreationMenu = document.querySelector("#roomCreation");
+const roomCreationMenu = document.querySelector("#roomCreation");
+
+createBtn.addEventListener("click", () => {
+  createRoom(textbox.value);
+  console.log(textbox.value);
+})
+const textbox = document.querySelector("#newRoomName");
+const createBtn = document.querySelector("#createNewRoom");
+    
 
     if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
         apiUrl = "http://localhost:8080/";
@@ -30,18 +38,6 @@
       mode: "cors",
       cache: "no-cache",
     });
-  }
-
-  function showRoomCreationMenu() {
-    const textbox = document.querySelector("#newRoomName");
-    const createBtn = document.querySelector("#createNewRoom");
-    
-    roomCreationMenu.hidden = false;
-
-    createBtn.addEventListener("click", () => {
-      createRoom(textbox.value);
-      console.log(textbox.value);
-    })
   }
 
     function logout() {
@@ -454,5 +450,5 @@
         window.location.reload();
     }
 
-    showRoomCreationMenu()
+    roomCreationMenu.hidden = false;
     window.onload = init;
