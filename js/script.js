@@ -35,6 +35,7 @@ function logout() {
     localStorage.removeItem("authDetails")
     document.getElementById("authInfo").hidden = true;
     updateRoomControls();
+    clearInterval(tokenRefresher)
 }
 
 function authenticate(onAuthenticated, onGuestUser) {
@@ -134,6 +135,7 @@ function init() {
         google.accounts.id.prompt();
     });
 
+    let tokenRefresher = setInterval(refreshTokenLogin(authDetails, onAuthenticated), 600000)
     const roomId = getRoomId();
 
     document.getElementById("roomsList").hidden = false;
@@ -420,6 +422,7 @@ function handleCredentialResponse(resp) {
         });
     });
 }
+
 
 window.onhashchange = function () {
     window.location.reload();
