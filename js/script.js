@@ -135,7 +135,7 @@ function init() {
         google.accounts.id.prompt();
     });
 
-    let tokenRefresher = setInterval(refreshTokenLogin(authDetails, onAuthenticated), 600000)
+    let tokenRefresher = setInterval(refreshTokenLogin(getAuthDetails(), () => {console.log("whatever")}), 600000)
     const roomId = getRoomId();
 
     document.getElementById("roomsList").hidden = false;
