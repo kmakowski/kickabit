@@ -9,21 +9,27 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script type="text/javascript" src="/js/script.js"defer></script>
 
-<div id="authInfo" hidden>Authenticated as: <span id="authDisplayName"></span><button id="logoutBtn" onclick="logout()">Logout</button></div>
+<div id="authInfo" hidden style="font-size: x-small">Authenticated as: <span id="authDisplayName"></span><button id="logoutBtn" onclick="logout()">Logout</button></div>
 
 <div id="connectionInfo" hidden><img src="https://i.gifer.com/ZKZg.gif" width="35" alt="Loading..."/></div>
 
 <div id="header" hidden>
     <h4 id="userInfo">Welcome <span id="playerName"></span><input type="text" id="playerNameInput" hidden/></h4>
     <h1 id="question"></h1>
-    <h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds</span></h3>
+    <h3 id="timeLeftHolder" hidden><span id="secondsLeft"></span><span>seconds left</span></h3>
     <h3 id="answer"></h3>
+    <h4 id="correctAnswerHolder" hidden>Correct Answer: <span id="correctAnswerSpan"></span></h4>
 </div>
 
-<div id="controls" hidden>
+<div id="roomJoiningForm" hidden>
+    <label for="roomJoiningTextInput">Enter your name:</label>
+    <input type="text" id="roomJoiningTextInput"/>
+    <button type="button" id="joinRoomButton">Join</button>
+</div>
+<div id="answerPostingForm" hidden>
     <label id="label" for="message"></label>
     <input type="text" id="message"/>
-    <button type="button" id="sendButton">Submit</button>
+    <button type="button" id="submitAnswerButton">Submit Answer</button>
 </div>
 
 <div id="results" hidden>

@@ -159,7 +159,7 @@
 
         messageInput.onkeyup = function (event) {
             if (event.key === "Enter") {
-                send();
+                submitAnswer();
             }
         }
 
@@ -194,21 +194,29 @@
             });
         }
 
-        setInterval(function () {
+        function updateTimeLeft() {
             const stopTimestamp = secondsLeftEl.getAttribute("stopTimestamp");
             let secondsLeftValue = Math.round(Number(stopTimestamp) - new Date().getTime() / 1000);
             if (secondsLeftValue <= 0) {
                 secondsLeftValue = 0;
             }
-            secondsLeftEl.innerHTML = "" + secondsLeftValue;
-        }, 1000);
+            secondsLeftEl.innerHTML = "" + secondsLeftValue + " ";
+
+            if (secondsLeftValue === 0) {
+                document.getElementById("answerPostingForm").hidden = true
+            }
+        }
 
         function addPlayer(player) {
+            let removePlayerButtonHtml = "<button id='removePlayer-" + player + "'>x</button>"
+            if (getAuthDetails() == null) {
+                removePlayerButtonHtml = ""
+            }
             const row = "<tr>" +
-                "<td id='playerCell-" + player + "'>" + player + "</td>" +
-                "<td id='playerAnswerTimeCell-" + player + "'>?</td>" +
-                "<td id='playerAnswerCell-" + player + "'>?</td>" +
-                "<td id='playerScoreCell-" + player + "' hidden>?</td>" +
+                "<td id='playerCell-" + player + "'>" + player + removePlayerButtonHtml + "</td>" +
+                "<td id='playerAnswerTimeCell-" + player + "' class='playerAnswerTimeClass'>?</td>" +
+                "<td id='playerAnswerCell-" + player + "' class='playerAnswerClass'>?</td>" +
+                "<td id='playerScoreCell-" + player + "' class='playerScoreClass' hidden>?</td>" +
                 "</tr>";
 
             playersDiv.innerHTML += row;
@@ -224,28 +232,25 @@
 
         let wsUrl = wsBaseUrl + "?roomId=" + roomId;
 
+        console.log("Stored user: " + storedUser)
         if (storedUser != null) {
             wsUrl = wsUrl + "&playerId=" + storedUser.playerId
             createWebSocket()
-
-            sendButton.onclick = send;
         } else {
             document.getElementById("connectionInfo").hidden = true;
-
-            label.innerHTML = "Enter your name:";
-            document.getElementById("controls").hidden = false;
-            sendButton.onclick = function () {
-                let playerName = messageInput.value;
+            document.getElementById("answerPostingForm").hidden = true;
+            document.getElementById("roomJoiningForm").hidden = false;
+            document.getElementById("joinRoomButton").onclick = function () {
+                let playerName = document.getElementById("roomJoiningTextInput").value;
                 wsUrl = wsUrl + "&playerName=" + encodeURIComponent(playerName)
-
                 createWebSocket()
-                sendButton.onclick = send;
             }
         }
 
         function createWebSocket() {
             const socket = new WebSocket(wsUrl);
 
+            console.log("Creating websocket " + wsUrl)
             socket.onopen = function () {
                 console.log("WS opened")
             };
@@ -281,11 +286,18 @@
                 function updateName(playerNameSpan, playerNameInput) {
                     return function () {
                         playerNameSpan.hidden = false;
-                        if (playerNameSpan.innerHTML !== playerNameInput.value) {
-                            playerNameSpan.innerHTML = playerNameInput.value
+                        let value = playerNameInput.value.trim();
+                        if (value === "") {
+                            alert("Name cannot be empty")
+                        }
+                        value = value.replace("/", "")
+                        value = value.replace("\"", "")
+
+                        if (playerNameSpan.innerHTML !== value) {
+                            playerNameSpan.innerHTML = value
 
                             const playerId = JSON.parse(localStorage.getItem(roomId)).playerId
-                            updatePlayerName(playerId, playerNameInput.value)
+                            updatePlayerName(playerId, value)
                         }
                         playerNameInput.hidden = true;
                     };
@@ -294,7 +306,8 @@
                 if (msg.eventType === "PlayerJoined") {
                     let c = msg.currentChallenge;
                     updateChallengeQuestion(c.id, c.question, c.stopTimestamp);
-                    document.getElementById("controls").hidden = false;
+                    document.getElementById("answerPostingForm").hidden = false;
+                    document.getElementById("roomJoiningForm").hidden = true;
 
                     let playerNameSpan = document.getElementById("playerName");
                     let playerNameInput = document.getElementById("playerNameInput");
@@ -319,8 +332,25 @@
                         addPlayer(player);
                     }
 
+                    for (const player of msg.players) {
+                        if (getAuthDetails() != null) {
+                            document.getElementById("removePlayer-" + player).onclick = async function () {
+                                let r = await fetch(apiUrl + "rooms/" + roomId + "/player-names/" + player, {
+                                    method: "DELETE",
+                                    headers: {
+                                        "Authorization": getAuthDetails().idToken
+                                    }
+                                })
+                                console.log(r.status)
+                            }
+                        }
+                    }
+
                     label.innerHTML = "Your answer: ";
                     updateRoomControls();
+                    updateTimeLeft();
+                    setInterval(updateTimeLeft, 1000);
+                    document.getElementById("submitAnswerButton").onclick = submitAnswer;
                 }
 
                 if (msg.eventType === "OtherPlayerJoined") {
@@ -335,9 +365,29 @@
 
                 if (msg.eventType === "CurrentChallengeUpdated") {
                     updateChallengeQuestion(msg.currentChallenge.challengeId, msg.question, msg.currentChallenge.stopTimestamp);
+                    document.getElementById("message").value = ""
+                    document.getElementById("answer").innerHTML = ""
+                    document.getElementById("answerPostingForm").hidden = false
+                    document.getElementById("correctAnswerHolder").hidden = true
+
+                    for (let el of document.getElementsByClassName("playerAnswerClass")) {
+                        el.innerHTML = "?"
+                    }
+
+                    for (let el of document.getElementsByClassName("playerScoreClass")) {
+                        el.innerHTML = "?"
+                    }
+                    for (let el of document.getElementsByClassName("playerAnswerTimeClass")) {
+                        el.innerHTML = "?"
+                    }
                 }
 
                 if (msg.eventType === "ResultTablePublished") {
+                    document.getElementById("answerPostingForm").hidden = true
+                    document.getElementById("timeLeftHolder").hidden = true
+                    document.getElementById("correctAnswerHolder").hidden = false
+                    document.getElementById("correctAnswerSpan").innerHTML = msg.correctAnswer
+
                     for (it of msg.answers) {
                         if (document.getElementById("playerCell-" + it.playerName) != null) {
                             document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
@@ -362,7 +412,7 @@
             };
         }
 
-        function send() {
+        function submitAnswer() {
             const inputValue = messageInput.value;
 
             if (inputValue !== "") {
@@ -377,7 +427,7 @@
                     if (r.ok) {
                         answer.innerHTML = "Your answer: " + inputValue;
 
-                        console.log("Answer sent!")
+                        // console.log("Answer sent!")
                     }
                 })
 
