@@ -1,4 +1,4 @@
-let apiUrl = "https://api.kickabit.com/team-game/";
+let apiUrl = "https://api.kickabit.com/";
 let wsBaseUrl = "wss://socket.kickabit.com/ws";
 
 if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
