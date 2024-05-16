@@ -137,10 +137,33 @@ function init() {
     authenticate(function () {
         updateAuthInfoDiv();
         updateRoomsList();
+        document.getElementById("loginForm").hidden = true
     }, function () {
         console.log("missing auth token")
         google.accounts.id.prompt();
+        document.getElementById("loginForm").hidden = false
     });
+
+    document.getElementById("loginButton").onclick = async function () {
+        let response = await fetch(apiUrl + "login", {
+            method: "POST",
+            body: JSON.stringify({
+                username: document.getElementById("usernameInput").value,
+                password: document.getElementById("passwordInput").value
+            })
+        })
+        if (!response.ok) {
+            alert("Could not login")
+            return
+        }
+        let value = await response.text();
+        localStorage.setItem("authDetails", value)
+        updateAuthInfoDiv()
+        updateRoomsList()
+        document.getElementById("roomCreation").hidden = false
+        document.getElementById("loginForm").hidden = true
+    }
+    
 
     const roomId = getRoomId();
 

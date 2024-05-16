@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>Team game</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script type="text/javascript" src="/js/script.js"defer></script>
 </head>
 
 <body>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<script type="text/javascript" src="/js/script.js"defer></script>
 
 <div id="authInfo" hidden style="font-size: x-small">Authenticated as: <span id="authDisplayName"></span><button id="logoutBtn" onclick="logout()">Logout</button></div>
 
@@ -17,6 +17,11 @@
     <h3>Create a new room</h3>
     <input id="newRoomName" type="text" placeholder="Name of your room">
     <button id="createNewRoom" type="submit">create</button>
+</div>
+<div id="loginForm" hidden>
+    <input id="usernameInput" type="text" placeholder="Username">
+    <input id="passwordInput" type="password" placeholder="Password">
+    <button id="loginButton" type="submit">Sign in</button>
 </div>
 
 <div id="header" hidden>
