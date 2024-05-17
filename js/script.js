@@ -6,21 +6,22 @@ if (window.location.hostname === "localhost" || window.location.hostname === "0.
     wsBaseUrl = "ws://localhost:8080/ws";
 }
 
-function refreshTokenLogin(authDetails, onSuccess) {
-    fetch(apiUrl + "refresh-token-login", {
+async function refreshTokenLogin(authDetails, onSuccess) {
+    let response = await fetch(apiUrl + "refresh-token-login", {
         method: "POST",
         body: authDetails.refreshToken
-    }).then(function (r) {
-        r.json().then(function (data) {
-            if (r.status !== 200) {
-                return;
-            }
-            console.log("Logged in using refresh token");
-            localStorage.setItem("authDetails", JSON.stringify(data))
-            updateAuthInfoDiv();
-            onSuccess();
-        });
-    });
+    })
+    let body = await response.json()
+    
+    if (!response.ok) {
+        console.log(response)
+        alert("login failed")
+        return;
+    }
+    console.log("Logged in using refresh token");
+    localStorage.setItem("authDetails", JSON.stringify(body))
+    updateAuthInfoDiv();
+    onSuccess();
 }
 
 async function deleteRoom(id) {
@@ -30,6 +31,10 @@ async function deleteRoom(id) {
             "Authorization": "Bearer " + getAuthDetails().idToken
         }
     });
+    
+    if (!response.ok) {
+        alert("Could not delete room")
+    }
 }
 
 function logout() {
@@ -83,39 +88,45 @@ function getRoomId() {
     }
 }
 
-function updateRoomsList() {
-    fetch(apiUrl + "rooms", {
+async function updateRoomsList() {
+    let response = await fetch(apiUrl + "rooms", {
         method: "GET",
         headers: {
             "Authorization": "Bearer " + getAuthDetails().idToken
         }
-    }).then(function (r) {
-        r.json().then(function (data) {
-            if (r.status !== 200) {
-                return
-            }
-            console.log("Retrieved user rooms: " + data.roomIds);
+    })
+    
+    if (!response.ok) {
+        return
+    }
+    
+    let body = await response.json()
+    console.log("Retrieved user rooms: " + body.rooms);
 
-            if (getRoomId() == null) {
-                for (const id of data.roomIds) {
-                    document.getElementById("roomsList").innerHTML +=
-                        "<a id='join-room-" + id + "' href='#" + id + "'>Join room " + id + "</a><button id='delete-room-" + id + "'>Delete room</button>";
-                }
-                for (const id of data.roomIds) {
-                    document.getElementById("delete-room-" + id).onclick = function () {
-                        deleteRoom(id)
-                    }
-                }
+    if (getRoomId() == null) {
+        document.getElementById("roomsList").innerHTML = ""
+        for (const room of body.rooms) {
+            document.getElementById("roomsList").innerHTML +=
+                "<div><a id='join-room-" + room.roomId + "' href='#" + room.roomId + "'>" + room.name + "</a><button id='delete-room-" + room.roomId + "'>X</button></div>";
+        }
+        for (const room of body.rooms) {
+            document.getElementById("delete-room-" + room.roomId).onclick = async function () {
+                await deleteRoom(room.roomId)
+                await updateRoomsList()
             }
-        });
-    });
+        }
+    }
 }
 
-function updatePlayerName(playerId, playerName) {
-    fetch(apiUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
+async function updatePlayerName(playerId, playerName) {
+    let response = await fetch(apiUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
         method: "PUT",
         body: JSON.stringify({playerName: playerName})
     })
+    
+    if (!response.ok) {
+        alert("Could not update player name")
+    }
 }
 
 function updateRoomControls() {
@@ -129,9 +140,10 @@ function init() {
     });
 
     const textbox = document.querySelector("#newRoomName");
-    document.querySelector("#createNewRoom").onclick = () => {
-        createRoom(textbox.value);
-        console.log(textbox.value);
+    document.getElementById("createNewRoom").onclick = async function() {
+        await createRoom(textbox.value);
+        await updateRoomsList()
+        textbox.value = ""
     }
 
     authenticate(function () {
@@ -191,41 +203,37 @@ function init() {
     const answer = document.getElementById("answer");
     const secondsLeftEl = document.getElementById("secondsLeft");
 
-    messageInput.onkeyup = function (event) {
+    messageInput.onkeyup = async function (event) {
         if (event.key === "Enter") {
-            submitAnswer();
+            await submitAnswer();
         }
     }
 
-    document.getElementById("nextQuestionButton").onclick = function () {
-        fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
+    document.getElementById("nextQuestionButton").onclick = async function () {
+        let response = await fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
             method: "POST",
             body: JSON.stringify({"secondsCount": 30}),
             headers: {
                 "Authorization": "Bearer " + getAuthDetails().idToken
             }
-        }).then(function (r) {
-            r.json().then(function () {
-                if (r.status !== 200) {
-                    return false;
-                }
-            });
-        });
+        })
+        
+        if (!response.ok) {
+            alert("Could not post next question")
+        }
     }
 
-    document.getElementById("revealResults").onclick = function () {
-        fetch(apiUrl + "rooms/" + roomId + "/reveal-answers", {
+    document.getElementById("revealResults").onclick = async function () {
+        let response = await fetch(apiUrl + "rooms/" + roomId + "/reveal-answers", {
             method: "POST",
             headers: {
                 "Authorization": "Bearer " + getAuthDetails().idToken
             }
-        }).then(function (r) {
-            r.json().then(function () {
-                if (r.status !== 200) {
-                    return false;
-                }
-            });
-        });
+        })
+
+        if (!response.ok) {
+            alert("Could not revealResults")
+        }
     }
 
     function updateTimeLeft() {
@@ -267,24 +275,36 @@ function init() {
     let wsUrl = wsBaseUrl + "?roomId=" + roomId;
 
     console.log("Stored user: " + storedUser)
+
+    function joinRoom() {
+        let playerName = document.getElementById("roomJoiningTextInput").value;
+        if (playerName.trim() === "" || playerName.indexOf("/") > 0 
+            || playerName.indexOf("<") > 0 || playerName.indexOf(">") > 0) {
+            alert("Incorrect name")
+            return
+        }
+        createWebSocket(wsUrl + "&playerName=" + encodeURIComponent(playerName))
+    }
+
+    document.getElementById("roomJoiningTextInput").onkeyup = function(e) {
+        if (e.key === "Enter") {
+            joinRoom()
+        }
+    }
+    
     if (storedUser != null) {
-        wsUrl = wsUrl + "&playerId=" + storedUser.playerId
-        createWebSocket()
+        createWebSocket(wsUrl + "&playerId=" + storedUser.playerId)
     } else {
         document.getElementById("connectionInfo").hidden = true;
         document.getElementById("answerPostingForm").hidden = true;
         document.getElementById("roomJoiningForm").hidden = false;
-        document.getElementById("joinRoomButton").onclick = function () {
-            let playerName = document.getElementById("roomJoiningTextInput").value;
-            wsUrl = wsUrl + "&playerName=" + encodeURIComponent(playerName)
-            createWebSocket()
-        }
+        document.getElementById("joinRoomButton").onclick = joinRoom
     }
 
-    function createWebSocket() {
-        const socket = new WebSocket(wsUrl);
+    function createWebSocket(url) {
+        const socket = new WebSocket(url);
 
-        console.log("Creating websocket " + wsUrl)
+        console.log("Creating websocket " + url)
         socket.onopen = function () {
             console.log("WS opened")
         };
@@ -369,13 +389,17 @@ function init() {
                 for (const player of msg.players) {
                     if (getAuthDetails() != null) {
                         document.getElementById("removePlayer-" + player).onclick = async function () {
-                            let r = await fetch(apiUrl + "rooms/" + roomId + "/player-names/" + player, {
+                            let response = await fetch(apiUrl + "rooms/" + roomId + "/player-names/" + player, {
                                 method: "DELETE",
                                 headers: {
                                     "Authorization": getAuthDetails().idToken
                                 }
                             })
-                            console.log(r.status)
+                            if (!response.ok) {
+                                console.log(response)
+
+                                alert("Could not remove user")
+                            }
                         }
                     }
                 }
@@ -446,24 +470,21 @@ function init() {
         };
     }
 
-    function submitAnswer() {
+    async function submitAnswer() {
         const inputValue = messageInput.value;
 
         if (inputValue !== "") {
-            fetch(apiUrl + "rooms/" + roomId + "/answers", {
+            let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
                 method: "POST",
                 body: JSON.stringify({
                     playerId: storedUser.playerId,
                     answer: inputValue,
                     challengeId: questionElement.getAttribute("challengeId")
                 })
-            }).then(function (r) {
-                if (r.ok) {
-                    answer.innerHTML = "Your answer: " + inputValue;
-
-                    // console.log("Answer sent!")
-                }
             })
+            if (response.ok) {
+                answer.innerHTML = "Your answer: " + inputValue;
+            }
 
             messageInput.value = "";
         } else {
@@ -492,33 +513,34 @@ async function createRoom(name) {
             "Authorization": getAuthDetails().idToken
         }
     });
+    if (!response.ok) {
+        alert("Could not create room")
+    }
     console.log(response.status)
 }
 
 
-function handleCredentialResponse(resp) {
+async function handleCredentialResponse(resp) {
     console.log(parseJwt(resp.credential));
     document.getElementById("authInfo").hidden = false;
 
-    fetch(apiUrl + "google-login", {
+    let response = await fetch(apiUrl + "google-login", {
         method: "POST",
         body: resp.credential
-    }).then(function (r) {
-        r.json().then(function (data) {
-            if (r.status !== 200) {
-                return;
-            }
-            console.log(data);
-            localStorage.setItem("authDetails", JSON.stringify(data));
-            updateAuthInfoDiv();
-            updateRoomsList();
-            if (getRoomId() != null) {
-                updateRoomControls();
-            } else {
-                document.getElementById("roomCreation").hidden = false;
-            }
-        });
-    });
+    })
+        
+    let body = await response.json()
+    if (response.ok) {
+        return;
+    }
+    localStorage.setItem("authDetails", JSON.stringify(body));
+    updateAuthInfoDiv();
+    updateRoomsList();
+    if (getRoomId() != null) {
+        updateRoomControls();
+    } else {
+        document.getElementById("roomCreation").hidden = false;
+    }
 }
 
 window.onhashchange = function () {
