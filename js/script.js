@@ -5,6 +5,11 @@ if (window.location.hostname === "localhost" || window.location.hostname === "0.
     apiUrl = "http://localhost:8080/";
     wsBaseUrl = "ws://localhost:8080/ws";
 }
+let debugEnabled = true
+
+function debug(any) {
+    console.debug(any)
+}
 
 async function refreshTokenLogin(authDetails, onSuccess) {
     let response = await fetch(apiUrl + "refresh-token-login", {
@@ -14,11 +19,11 @@ async function refreshTokenLogin(authDetails, onSuccess) {
     let body = await response.json()
     
     if (!response.ok) {
-        console.log(response)
+        debug(response)
         alert("login failed")
         return;
     }
-    console.log("Logged in using refresh token");
+    debug("Logged in using refresh token");
     localStorage.setItem("authDetails", JSON.stringify(body))
     updateAuthInfoDiv();
     onSuccess();
@@ -37,31 +42,34 @@ async function deleteRoom(id) {
     }
 }
 
-function logout() {
+async function logout() {
     localStorage.removeItem("authDetails")
     document.getElementById("authInfo").hidden = true;
     updateRoomControls();
+    document.getElementById("loginForm").hidden = false;
+    document.getElementById("roomsList").hidden = true;
+    document.getElementById("roomCreation").hidden = true;
 }
 
-function authenticate(onAuthenticated, onGuestUser) {
+async function authenticate(onAuthenticated, onGuestUser) {
     let authDetails = getAuthDetails();
     const now = new Date().toISOString();
     const nowPlusMinute = new Date(new Date().getTime() + 60 * 1000).toISOString();
 
-    console.log("auth details: " + authDetails)
+    debug("auth details: " + authDetails)
     if (authDetails == null) {
         onGuestUser();
         return;
     }
 
     if (nowPlusMinute > authDetails.idTokenExpirationDate) {
-        console.log("id token expired or almost expired")
+        debug("id token expired or almost expired")
 
         if (authDetails.refreshTokenExpirationDate < now) {
-            console.log("refresh Token expired")
+            debug("refresh Token expired")
             onGuestUser();
         } else {
-            refreshTokenLogin(authDetails, onAuthenticated);
+            await refreshTokenLogin(authDetails, onAuthenticated);
         }
     } else {
         onAuthenticated()
@@ -101,7 +109,7 @@ async function updateRoomsList() {
     }
     
     let body = await response.json()
-    console.log("Retrieved user rooms: " + body.rooms);
+    debug("Retrieved user rooms: " + body.rooms);
 
     if (getRoomId() == null) {
         document.getElementById("roomsList").innerHTML = ""
@@ -133,10 +141,16 @@ function updateRoomControls() {
     document.getElementById("roomControls").hidden = getAuthDetails() == null;
 }
 
-function init() {
+async function init() {
     google.accounts.id.initialize({
         client_id: '679464205407-0vt0pvp8of95bbm8vgt6h9q03rfv283o.apps.googleusercontent.com',
         callback: handleCredentialResponse
+    });
+
+    google.accounts.id.renderButton(document.getElementById("googleLoginButton"), {
+        theme: 'outline',
+        size: 'small',
+        type: 'icon'
     });
 
     const textbox = document.querySelector("#newRoomName");
@@ -146,14 +160,21 @@ function init() {
         textbox.value = ""
     }
 
-    authenticate(function () {
+    await authenticate(function () {
         updateAuthInfoDiv();
         updateRoomsList();
         document.getElementById("loginForm").hidden = true
+        
+        debug("setting up auth refresh interval")
+        setInterval(async function (){
+            await refreshTokenLogin(getAuthDetails(), function (){})
+        }, 8*60*1000)
     }, function () {
-        console.log("missing auth token")
+        debug("missing auth token")
         google.accounts.id.prompt();
-        document.getElementById("loginForm").hidden = false
+        if (getRoomId() == null) {
+            document.getElementById("loginForm").hidden = false
+        }
     });
 
     document.getElementById("loginButton").onclick = async function () {
@@ -171,9 +192,11 @@ function init() {
         let value = await response.text();
         localStorage.setItem("authDetails", value)
         updateAuthInfoDiv()
-        updateRoomsList()
-        document.getElementById("roomCreation").hidden = false
+        document.getElementById("roomCreation").hidden = getRoomId() != null
         document.getElementById("loginForm").hidden = true
+        document.getElementById("roomsList").hidden = false
+        document.getElementById("roomControls").hidden = getRoomId() == null
+        await updateRoomsList()
     }
     
 
@@ -182,7 +205,7 @@ function init() {
     document.getElementById("roomsList").hidden = false;
 
     if (roomId == null) {
-        console.log("No room selected")
+        debug("No room selected")
         if (getAuthDetails() != null) {
             document.getElementById("roomCreation").hidden = false
         }
@@ -212,7 +235,7 @@ function init() {
     document.getElementById("nextQuestionButton").onclick = async function () {
         let response = await fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
             method: "POST",
-            body: JSON.stringify({"secondsCount": 30}),
+            body: JSON.stringify({"secondsCount": document.getElementById("answerSecondsCount").value}),
             headers: {
                 "Authorization": "Bearer " + getAuthDetails().idToken
             }
@@ -220,6 +243,20 @@ function init() {
         
         if (!response.ok) {
             alert("Could not post next question")
+        }
+    }
+    
+    document.getElementById("giveExtraTime").onclick = async function () {
+        let response = await fetch(apiUrl + "rooms/" + roomId + "/current-challenge", {
+            method: "PUT",
+            body: JSON.stringify({"secondsCount": document.getElementById("answerSecondsCount").value}),
+            headers: {
+                "Authorization": "Bearer " + getAuthDetails().idToken
+            }
+        })
+
+        if (!response.ok) {
+            alert("Could not give extra time")
         }
     }
 
@@ -258,7 +295,8 @@ function init() {
             "<td id='playerCell-" + player + "'>" + player + removePlayerButtonHtml + "</td>" +
             "<td id='playerAnswerTimeCell-" + player + "' class='playerAnswerTimeClass'>?</td>" +
             "<td id='playerAnswerCell-" + player + "' class='playerAnswerClass'>?</td>" +
-            "<td id='playerScoreCell-" + player + "' class='playerScoreClass' hidden>?</td>" +
+            "<td id='playerScoreCell-" + player + "' class='playerScoreClass'>?</td>" +
+            "<td id='playerTotalScoreCell-" + player + "' class='playerScoreClass'>?</td>" +
             "</tr>";
 
         playersDiv.innerHTML += row;
@@ -274,7 +312,7 @@ function init() {
 
     let wsUrl = wsBaseUrl + "?roomId=" + roomId;
 
-    console.log("Stored user: " + storedUser)
+    debug("Stored user: " + storedUser)
 
     function joinRoom() {
         let playerName = document.getElementById("roomJoiningTextInput").value;
@@ -304,9 +342,9 @@ function init() {
     function createWebSocket(url) {
         const socket = new WebSocket(url);
 
-        console.log("Creating websocket " + url)
+        debug("Creating websocket " + url)
         socket.onopen = function () {
-            console.log("WS opened")
+            debug("WS opened")
         };
 
         socket.onclose = function () {
@@ -325,14 +363,14 @@ function init() {
             }
 
             const msg = JSON.parse(message.data);
-            console.log(msg);
+            debug(msg);
 
             if (msg.eventType === "PlayerJoined" && localStorage.getItem(roomId) == null) {
                 const user = {
                     playerId: msg.playerId,
                     playerName: msg.playerName
                 };
-                console.log("Received playerId " + msg.playerId)
+                debug("Received playerId " + msg.playerId)
                 localStorage.setItem(roomId, JSON.stringify(user));
                 storedUser = user;
             }
@@ -341,11 +379,11 @@ function init() {
                 return function () {
                     playerNameSpan.hidden = false;
                     let value = playerNameInput.value.trim();
-                    if (value === "") {
-                        alert("Name cannot be empty")
+
+                    if (!/^[a-z0-9]+$/i.test(value)) {
+                        alert("Please enter alphanumeric characters only");
+                        return;
                     }
-                    value = value.replace("/", "")
-                    value = value.replace("\"", "")
 
                     if (playerNameSpan.innerHTML !== value) {
                         playerNameSpan.innerHTML = value
@@ -376,7 +414,7 @@ function init() {
 
                 playerNameInput.onkeyup = function (event) {
                     if (event.key === "Enter") {
-                        updateName(playerNameSpan, playerNameInput)
+                        updateName(playerNameSpan, playerNameInput)()
                     }
                 }
 
@@ -396,7 +434,7 @@ function init() {
                                 }
                             })
                             if (!response.ok) {
-                                console.log(response)
+                                debug(response)
 
                                 alert("Could not remove user")
                             }
@@ -439,7 +477,12 @@ function init() {
                     el.innerHTML = "?"
                 }
             }
-
+            if (msg.eventType === "ExtraTimeGiven") {
+                secondsLeftEl.setAttribute("stopTimestamp", msg.currentChallenge.stopTimestamp)
+                document.getElementById("timeLeftHolder").hidden = false;
+                document.getElementById("answerPostingForm").hidden = false;
+            }
+            
             if (msg.eventType === "ResultTablePublished") {
                 document.getElementById("answerPostingForm").hidden = true
                 document.getElementById("timeLeftHolder").hidden = true
@@ -451,8 +494,7 @@ function init() {
                         document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
                         document.getElementById("playerAnswerCell-" + it.playerName).innerHTML = it.answer;
                         document.getElementById("playerScoreCell-" + it.playerName).innerHTML = it.score;
-                        document.getElementById("playerScoreCell-" + it.playerName).hidden = false;
-                        document.getElementById("scoreTableHeader").hidden = false;
+                        document.getElementById("playerTotalScoreCell-" + it.playerName).innerHTML = it.totalScore;
                     }
                 }
             }
@@ -465,31 +507,36 @@ function init() {
                     document.getElementById("playerAnswerTimeCell-" + msg.oldName).id = "playerAnswerTimeCell-" + msg.newName
                     document.getElementById("playerAnswerCell-" + msg.oldName).id = "playerAnswerCell-" + msg.newName;
                     document.getElementById("playerScoreCell-" + msg.oldName).id = "playerScoreCell-" + msg.newName;
+                    document.getElementById("playerTotalScoreCell-" + msg.oldName).id = "playerTotalScoreCell-" + msg.newName;
+
                 }
             }
         };
     }
 
     async function submitAnswer() {
-        const inputValue = messageInput.value;
+        const inputValue = messageInput.value.trim();
+        
+        if (!/^\d+$/.test(inputValue)) {
+            alert("Please enter a valid integer");
+            return;
+        }
 
-        if (inputValue !== "") {
-            let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
-                method: "POST",
-                body: JSON.stringify({
-                    playerId: storedUser.playerId,
-                    answer: inputValue,
-                    challengeId: questionElement.getAttribute("challengeId")
-                })
+        let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
+            method: "POST",
+            body: JSON.stringify({
+                playerId: storedUser.playerId,
+                answer: inputValue,
+                challengeId: questionElement.getAttribute("challengeId")
             })
-            if (response.ok) {
-                answer.innerHTML = "Your answer: " + inputValue;
-            }
-
+        })
+        if (response.ok) {
+            answer.innerHTML = "Your answer: " + inputValue;
             messageInput.value = "";
         } else {
-            alert("You must enter a message to be sent!");
+            alert("Could not submit an answer")
         }
+
     }
 }
 
@@ -516,12 +563,12 @@ async function createRoom(name) {
     if (!response.ok) {
         alert("Could not create room")
     }
-    console.log(response.status)
+    debug(response.status)
 }
 
 
 async function handleCredentialResponse(resp) {
-    console.log(parseJwt(resp.credential));
+    debug(parseJwt(resp.credential));
     document.getElementById("authInfo").hidden = false;
 
     let response = await fetch(apiUrl + "google-login", {
@@ -530,16 +577,19 @@ async function handleCredentialResponse(resp) {
     })
         
     let body = await response.json()
-    if (response.ok) {
+    if (!response.ok) {
+        alert("Could not sign in with google")
         return;
     }
     localStorage.setItem("authDetails", JSON.stringify(body));
     updateAuthInfoDiv();
-    updateRoomsList();
+    await updateRoomsList();
     if (getRoomId() != null) {
         updateRoomControls();
     } else {
         document.getElementById("roomCreation").hidden = false;
+        document.getElementById("loginForm").hidden = true;
+        document.getElementById("roomsList").hidden = false;
     }
 }
 
