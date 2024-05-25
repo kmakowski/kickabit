@@ -226,6 +226,8 @@ async function init() {
     const answer = document.getElementById("answer");
     const secondsLeftEl = document.getElementById("secondsLeft");
 
+    document.querySelector('#submitAnswerButton .spinner-border').hidden = true;
+
     messageInput.onkeyup = async function (event) {
         if (event.key === "Enter") {
             await submitAnswer();
@@ -522,21 +524,24 @@ async function init() {
             return;
         }
 
-        let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
-            method: "POST",
-            body: JSON.stringify({
-                playerId: storedUser.playerId,
-                answer: inputValue,
-                challengeId: questionElement.getAttribute("challengeId")
-            })
-        })
-        if (response.ok) {
-            answer.innerHTML = "Your answer: " + inputValue;
-            messageInput.value = "";
-        } else {
-            alert("Could not submit an answer")
+        try {
+          let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
+              method: "POST",
+              body: JSON.stringify({
+                  playerId: storedUser.playerId,
+                  answer: inputValue,
+                  challengeId: questionElement.getAttribute("challengeId")
+              })
+          })
+          document.querySelector('#submitAnswerButton .spinner-border').hidden = false
+          if (response.ok) {
+              answer.innerHTML = "Your answer: " + inputValue;
+              document.querySelector('#submitAnswerButton .spinner-border').hidden = true
+              messageInput.value = "";
+          } 
+        } catch (error) {
+            alert(`Could not submit an answer: ${error}`)
         }
-
     }
 }
 
