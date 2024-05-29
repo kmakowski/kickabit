@@ -64,14 +64,28 @@ async function authenticate(onAuthenticated, onGuestUser) {
 
     if (nowPlusMinute > authDetails.idTokenExpirationDate) {
         debug("id token expired or almost expired")
-
+        
         if (authDetails.refreshTokenExpirationDate < now) {
             debug("refresh Token expired")
             onGuestUser();
         } else {
             await refreshTokenLogin(authDetails, onAuthenticated);
+            debug("setting up auth refresh interval")
+            setInterval(async function (){
+                await refreshTokenLogin(getAuthDetails(), function (){})
+            }, 8*60*1000)
         }
     } else {
+        debug(authDetails.idTokenExpirationDate)
+        setTimeout(function () {
+            refreshTokenLogin(authDetails, onAuthenticated);
+            
+            debug("setting up auth refresh interval")
+            setInterval(async function (){
+                await refreshTokenLogin(getAuthDetails(), function (){})
+            }, 8*60*1000)
+
+        }, (Date.parse(getAuthDetails().idTokenExpirationDate) - new Date()) - 60*1000)
         onAuthenticated()
     }
 }
@@ -152,6 +166,7 @@ async function init() {
         size: 'small',
         type: 'icon'
     });
+    
 
     const textbox = document.querySelector("#newRoomName");
     document.getElementById("createNewRoom").onclick = async function() {
@@ -165,10 +180,6 @@ async function init() {
         updateRoomsList();
         document.getElementById("loginForm").hidden = true
         
-        debug("setting up auth refresh interval")
-        setInterval(async function (){
-            await refreshTokenLogin(getAuthDetails(), function (){})
-        }, 8*60*1000)
     }, function () {
         debug("missing auth token")
         google.accounts.id.prompt();
@@ -212,6 +223,8 @@ async function init() {
         return
     }
 
+    let players = []
+    
     document.getElementById("roomsList").hidden = true;
 
     const storedUserJson = localStorage.getItem(roomId);
@@ -292,19 +305,42 @@ async function init() {
     }
 
     function addPlayer(player) {
-        let removePlayerButtonHtml = "<button id='removePlayer-" + player + "'>x</button>"
+        let playerName = player.playerName
+        let removePlayerButtonHtml = "<button id='removePlayer-" + playerName + "' class='btn btn-sm btn-warning'>x</button>"
         if (getAuthDetails() == null) {
             removePlayerButtonHtml = ""
         }
-        const row = "<tr>" +
-            "<td id='playerCell-" + player + "'>" + player + removePlayerButtonHtml + "</td>" +
-            "<td id='playerAnswerTimeCell-" + player + "' class='playerAnswerTimeClass'>?</td>" +
-            "<td id='playerAnswerCell-" + player + "' class='playerAnswerClass'>?</td>" +
-            "<td id='playerScoreCell-" + player + "' class='playerScoreClass'>?</td>" +
-            "<td id='playerTotalScoreCell-" + player + "' class='playerScoreClass'>?</td>" +
+        const row = "<tr id='playerRow-" + playerName + "'>" +
+            "<td id='playerCell-" + playerName + "'>" + playerName + removePlayerButtonHtml + "</td>" +
+            "<td id='playerAnswerTimeCell-" + playerName + "' class='playerAnswerTimeClass'>" + player.seconds + "</td>" +
+            "<td id='playerAnswerCell-" + playerName + "' class='playerAnswerClass'>" + player.answer + "</td>" +
+            "<td id='playerScoreCell-" + playerName + "' class='playerScoreClass'>" + player.score + "</td>" +
+            "<td id='playerTotalScoreCell-" + playerName + "' class='playerScoreClass'>" + player.totalScore + "</td>" +
             "</tr>";
 
         playersDiv.innerHTML += row;
+    }
+    
+    function renderPlayers() {
+        let orderingFieldName = document.getElementById("sortBySelect").value
+
+        players.sort(function (l, r) {
+            if (orderingFieldName === "score") {
+                return r.score - l.score
+            }
+            if (orderingFieldName === "name") {
+                return r.playerName - l.playerName
+            }
+            if (orderingFieldName === "total") {
+                return r.totalScore - l.totalScore
+            }
+        })
+        
+        playersDiv.innerHTML = ""
+        
+        for (const player of players) {
+            addPlayer(player)
+        }
     }
 
     function updateChallengeQuestion(id, question, stopTimestamp) {
@@ -344,6 +380,10 @@ async function init() {
         document.getElementById("joinRoomButton").onclick = joinRoom
     }
 
+    document.getElementById("sortBtn").onclick = function() {
+        renderPlayers()
+    }
+    
     function createWebSocket(url) {
         const socket = new WebSocket(url);
 
@@ -425,9 +465,17 @@ async function init() {
 
                 playerNameInput.onmouseleave = updateName(playerNameSpan, playerNameInput)
 
-                for (const player of msg.players) {
-                    addPlayer(player);
-                }
+                players = msg.players.map(function(it) {
+                    return {
+                        playerName: it,
+                        score: "?",
+                        answer: "?",
+                        seconds: "?",
+                        totalScore: "?"
+                    }
+                })
+                
+                renderPlayers()
 
                 for (const player of msg.players) {
                     if (getAuthDetails() != null) {
@@ -439,8 +487,6 @@ async function init() {
                                 }
                             })
                             if (!response.ok) {
-                                debug(response)
-
                                 alert("Could not remove user")
                             }
                         }
@@ -456,7 +502,14 @@ async function init() {
 
             if (msg.eventType === "OtherPlayerJoined") {
                 if (document.getElementById("playerCell-" + msg.playerName) == null) {
-                    addPlayer(msg.playerName);
+                    players.push({
+                        playerName: msg.playerName,
+                        seconds: "?",
+                        answer: "?",
+                        score: "?",
+                        totalScore: "?"
+                    })
+                    renderPlayers()
                 }
             }
 
@@ -486,6 +539,7 @@ async function init() {
                 secondsLeftEl.setAttribute("stopTimestamp", msg.currentChallenge.stopTimestamp)
                 document.getElementById("timeLeftHolder").hidden = false;
                 document.getElementById("answerPostingForm").hidden = false;
+                document.getElementById("message").focus()
             }
             
             if (msg.eventType === "ResultTablePublished") {
@@ -493,7 +547,9 @@ async function init() {
                 document.getElementById("timeLeftHolder").hidden = true
                 document.getElementById("correctAnswerHolder").hidden = false
                 document.getElementById("correctAnswerSpan").innerHTML = msg.correctAnswer
-
+                
+                players = msg.answers;
+                
                 for (it of msg.answers) {
                     if (document.getElementById("playerCell-" + it.playerName) != null) {
                         document.getElementById("playerAnswerTimeCell-" + it.playerName).innerHTML = it.seconds;
