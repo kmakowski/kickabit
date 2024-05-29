@@ -584,7 +584,8 @@ async function init() {
         }
 
         try {
-          submitSpinner.hidden = false
+          submitSpinner.hidden = false;
+          submitAnswerButton.disabled = true;
           let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
               method: "POST",
               body: JSON.stringify({
@@ -595,7 +596,8 @@ async function init() {
           })
           if (response.ok) {
               answer.innerHTML = "Your answer: " + inputValue;
-              submitSpinner.hidden = true
+              submitSpinner.hidden = true;
+              submitAnswerButton.disabled = false;
               messageInput.value = "";
           } 
         } catch (error) {
