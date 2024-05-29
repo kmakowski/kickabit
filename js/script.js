@@ -226,7 +226,10 @@ async function init() {
     const answer = document.getElementById("answer");
     const secondsLeftEl = document.getElementById("secondsLeft");
 
-    document.querySelector('#submitAnswerButton .spinner-border').hidden = true;
+    /* animations */
+    const submitSpinner = document.querySelector('#submitAnswerButton .spinner-border');
+
+    submitSpinner.hidden = true;
 
     messageInput.onkeyup = async function (event) {
         if (event.key === "Enter") {
@@ -525,6 +528,7 @@ async function init() {
         }
 
         try {
+          submitSpinner.hidden = false
           let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
               method: "POST",
               body: JSON.stringify({
@@ -533,10 +537,9 @@ async function init() {
                   challengeId: questionElement.getAttribute("challengeId")
               })
           })
-          document.querySelector('#submitAnswerButton .spinner-border').hidden = false
           if (response.ok) {
               answer.innerHTML = "Your answer: " + inputValue;
-              document.querySelector('#submitAnswerButton .spinner-border').hidden = true
+              submitSpinner.hidden = true
               messageInput.value = "";
           } 
         } catch (error) {
