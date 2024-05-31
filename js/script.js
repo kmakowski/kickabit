@@ -11,6 +11,27 @@ function debug(any) {
     console.debug(any)
 }
 
+class asyncButton {
+  constructor(id, request, onSuccess, onFailure) {
+    this._id = id;
+    this._onSuccess = onSuccess;
+    this._onFailure = onFailure;
+    this._request = request;
+    this._name = document.getElementById(id);
+    this._spinner = this._name.span.spinner-border;
+  }
+  try {
+    this._spinner.hidden = false;
+    let response = await response;
+    if (response.ok) {
+      this._spinner.hidden = true;
+      onSuccess()
+    } else {
+      onFailure()
+    }
+  }
+}
+
 async function refreshTokenLogin(authDetails, onSuccess) {
     let response = await fetch(apiUrl + "refresh-token-login", {
         method: "POST",
@@ -583,24 +604,21 @@ async function init() {
             return;
         }
 
-        try {
-          submitSpinner.hidden = false
-          let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
-              method: "POST",
-              body: JSON.stringify({
-                  playerId: storedUser.playerId,
-                  answer: inputValue,
-                  challengeId: questionElement.getAttribute("challengeId")
-              })
-          })
-          if (response.ok) {
+        const submitAnswerButtonObject = new asyncButton('submitAnswerButton',
+          () => { fetch(apiUrl + "rooms/" + roomId + "/answers", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            playerId: storedUser.playerId,
+                            answer: inputValue,
+                            challengeId: questionElement.getAttribute("challengeId")
+                        })
+                    })}, 
+          () = > {
               answer.innerHTML = "Your answer: " + inputValue;
               submitSpinner.hidden = true
               messageInput.value = "";
-          } 
-        } catch (error) {
-            alert(`Could not submit an answer: ${error}`)
-        }
+          }, 
+          () => { alert(`Could not submit an answer: ${error}`) });
     }
 }
 
