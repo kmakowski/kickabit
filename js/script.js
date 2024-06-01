@@ -240,9 +240,15 @@ async function init() {
     const secondsLeftEl = document.getElementById("secondsLeft");
 
     /* animations */
-    const submitSpinner = document.querySelector('#submitAnswerButton .spinner-border');
+    const buttons = [submitAnswerButton, nextQuestionButton, revealResults];
+    const spinners = [];
 
-    submitSpinner.hidden = true;
+    for (let i = buttons.length - 1; i >= 0; i--) {
+      spinners[i] = buttons[i].childNodes[1]
+    }
+    for (i of spinners) {
+      i.hidden = true;
+    }
 
     messageInput.onkeyup = async function (event) {
         if (event.key === "Enter") {
@@ -251,6 +257,8 @@ async function init() {
     }
 
     document.getElementById("nextQuestionButton").onclick = async function () {
+        const spinner = spinners[1];
+        spinner.hidden = false;
         let response = await fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
             method: "POST",
             body: JSON.stringify({"secondsCount": document.getElementById("answerSecondsCount").value}),
@@ -258,6 +266,7 @@ async function init() {
                 "Authorization": "Bearer " + getAuthDetails().idToken
             }
         })
+        spinner.hidden = true;
         
         if (!response.ok) {
             alert("Could not post next question")
@@ -279,13 +288,15 @@ async function init() {
     }
 
     document.getElementById("revealResults").onclick = async function () {
+        const spinner = spinners[2];
+        spinner.hidden = false;
         let response = await fetch(apiUrl + "rooms/" + roomId + "/reveal-answers", {
             method: "POST",
             headers: {
                 "Authorization": "Bearer " + getAuthDetails().idToken
             }
         })
-
+        spinner.hidden = true;
         if (!response.ok) {
             alert("Could not revealResults")
         }
@@ -582,6 +593,7 @@ async function init() {
             alert("Please enter a valid integer");
             return;
         }
+        const submitSpinner = spinners[0];
 
         try {
           submitSpinner.hidden = false
