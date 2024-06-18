@@ -69,8 +69,14 @@
 </div>
 
 <div id="roomControls" hidden>
-    <button id="nextQuestionButton" class="btn btn-success">Next</button>
-    <button id="revealResults" class="btn btn-primary">Reveal results</button>
+    <button id="nextQuestionButton" class="btn btn-success">
+      <span class="spinner-border" role="status" aria-hidden="true"></span>
+      <span class="sr-only">Next</span>
+</button>
+    <button id="revealResults" class="btn btn-primary">
+      <span class="spinner-border" role="status" aria-hidden="true"></span>
+      <span class="sr-only">Reveal results</span>
+    </button>
     <label for="answerSecondsCount" >Timeout</label> <input id="answerSecondsCount" value="10" style="width: 50px"/>
     <button id="giveExtraTime" class="btn btn-primary">Extra time</button>
     <select id="sortBySelect">
