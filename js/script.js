@@ -1,45 +1,15 @@
-let apiUrl = "https://api.kickabit.com/";
-let wsBaseUrl = "wss://socket.kickabit.com/ws";
-
-if (window.location.hostname === "localhost" || window.location.hostname === "0.0.0.0") {
-    apiUrl = "http://localhost:8080/";
-    wsBaseUrl = "ws://localhost:8080/ws";
-}
-let debugEnabled = true
-
 function debug(any) {
     console.debug(any)
 }
 
 async function refreshTokenLogin(authDetails, onSuccess) {
-    let response = await fetch(apiUrl + "refresh-token-login", {
-        method: "POST",
-        body: authDetails.refreshToken
-    })
-    let body = await response.json()
-    
-    if (!response.ok) {
-        debug(response)
-        alert("login failed")
-        return;
+    let result = await loginUsingRefreshToken()
+    if (result == null) {
+        return
     }
     debug("Logged in using refresh token");
-    localStorage.setItem("authDetails", JSON.stringify(body))
     updateAuthInfoDiv();
     onSuccess();
-}
-
-async function deleteRoom(id) {
-    const response = await fetch(apiUrl + "rooms/" + id, {
-        method: "DELETE",
-        headers: {
-            "Authorization": "Bearer " + getAuthDetails().idToken
-        }
-    });
-    
-    if (!response.ok) {
-        alert("Could not delete room")
-    }
 }
 
 async function logout() {
@@ -97,9 +67,6 @@ function updateAuthInfoDiv() {
     authInfoDiv.hidden = false;
 }
 
-function getAuthDetails() {
-    return JSON.parse(localStorage.getItem("authDetails"));
-}
 
 function getRoomId() {
     const roomId = window.location.hash.substring(1);
@@ -111,18 +78,10 @@ function getRoomId() {
 }
 
 async function updateRoomsList() {
-    let response = await fetch(apiUrl + "rooms", {
-        method: "GET",
-        headers: {
-            "Authorization": "Bearer " + getAuthDetails().idToken
-        }
-    })
-    
-    if (!response.ok) {
+    let body = await getRoomsList();
+    if (body == null) {
         return
     }
-    
-    let body = await response.json()
     debug("Retrieved user rooms: " + body.rooms);
 
     if (getRoomId() == null) {
@@ -137,17 +96,6 @@ async function updateRoomsList() {
                 await updateRoomsList()
             }
         }
-    }
-}
-
-async function updatePlayerName(playerId, playerName) {
-    let response = await fetch(apiUrl + "rooms/" + getRoomId() + "/players/" + playerId, {
-        method: "PUT",
-        body: JSON.stringify({playerName: playerName})
-    })
-    
-    if (!response.ok) {
-        alert("Could not update player name")
     }
 }
 
@@ -189,19 +137,12 @@ async function init() {
     });
 
     document.getElementById("loginButton").onclick = async function () {
-        let response = await fetch(apiUrl + "login", {
-            method: "POST",
-            body: JSON.stringify({
-                username: document.getElementById("usernameInput").value,
-                password: document.getElementById("passwordInput").value
-            })
-        })
-        if (!response.ok) {
-            alert("Could not login")
+        let username = document.getElementById("usernameInput").value;
+        let password = document.getElementById("passwordInput").value;
+        let success = await usernamePasswordLogin(username, password)
+        if (!success) {
             return
         }
-        let value = await response.text();
-        localStorage.setItem("authDetails", value)
         updateAuthInfoDiv()
         document.getElementById("roomCreation").hidden = getRoomId() != null
         document.getElementById("loginForm").hidden = true
@@ -246,7 +187,7 @@ async function init() {
     for (let i = buttons.length - 1; i >= 0; i--) {
       spinners[i] = buttons[i].childNodes[1]
     }
-    for (i of spinners) {
+    for (let i of spinners) {
       i.hidden = true;
     }
 
@@ -259,47 +200,22 @@ async function init() {
     document.getElementById("nextQuestionButton").onclick = async function () {
         const spinner = spinners[1];
         spinner.hidden = false;
-        let response = await fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
-            method: "POST",
-            body: JSON.stringify({"secondsCount": document.getElementById("answerSecondsCount").value}),
-            headers: {
-                "Authorization": "Bearer " + getAuthDetails().idToken
-            }
-        })
+        let secondsCount = document.getElementById("answerSecondsCount").value;
+        await publishNextQuestion(roomId, secondsCount)
         spinner.hidden = true;
-        
-        if (!response.ok) {
-            alert("Could not post next question")
-        }
     }
     
     document.getElementById("giveExtraTime").onclick = async function () {
-        let response = await fetch(apiUrl + "rooms/" + roomId + "/current-challenge", {
-            method: "PUT",
-            body: JSON.stringify({"secondsCount": document.getElementById("answerSecondsCount").value}),
-            headers: {
-                "Authorization": "Bearer " + getAuthDetails().idToken
-            }
-        })
-
-        if (!response.ok) {
-            alert("Could not give extra time")
-        }
+        let secondsCount = document.getElementById("answerSecondsCount").value;
+        await giveExtraTime(roomId, secondsCount)
     }
 
     document.getElementById("revealResults").onclick = async function () {
         const spinner = spinners[2];
         spinner.hidden = false;
-        let response = await fetch(apiUrl + "rooms/" + roomId + "/reveal-answers", {
-            method: "POST",
-            headers: {
-                "Authorization": "Bearer " + getAuthDetails().idToken
-            }
-        })
+
+        await revealAnswers(roomId)
         spinner.hidden = true;
-        if (!response.ok) {
-            alert("Could not revealResults")
-        }
     }
 
     function updateTimeLeft() {
@@ -490,17 +406,7 @@ async function init() {
 
                 for (const player of msg.players) {
                     if (getAuthDetails() != null) {
-                        document.getElementById("removePlayer-" + player).onclick = async function () {
-                            let response = await fetch(apiUrl + "rooms/" + roomId + "/player-names/" + player, {
-                                method: "DELETE",
-                                headers: {
-                                    "Authorization": getAuthDetails().idToken
-                                }
-                            })
-                            if (!response.ok) {
-                                alert("Could not remove user")
-                            }
-                        }
+                        document.getElementById("removePlayer-" + player).onclick = async () => await removePlayer(player)
                     }
                 }
 
@@ -588,78 +494,34 @@ async function init() {
 
     async function submitAnswer() {
         const inputValue = messageInput.value.trim();
-        
+
         if (!/^\d+$/.test(inputValue)) {
             alert("Please enter a valid integer");
             return;
         }
         const submitSpinner = spinners[0];
 
-        try {
-          submitSpinner.hidden = false;
-          submitAnswerButton.disabled = true;
-          let response = await fetch(apiUrl + "rooms/" + roomId + "/answers", {
-              method: "POST",
-              body: JSON.stringify({
-                  playerId: storedUser.playerId,
-                  answer: inputValue,
-                  challengeId: questionElement.getAttribute("challengeId")
-              })
-          })
-          if (response.ok) {
-              answer.innerHTML = "Your answer: " + inputValue;
-              submitSpinner.hidden = true;
-              submitAnswerButton.disabled = false;
-              messageInput.value = "";
-          } 
-        } catch (error) {
-            alert(`Could not submit an answer: ${error}`)
-        }
+        let submitAnswerButton = document.getElementById("submitAnswerButton");
+        submitSpinner.hidden = false;
+        submitAnswerButton.disabled = true;
+        let challengeId = questionElement.getAttribute("challengeId");
+        await apiSubmitAnswer(roomId, storedUser.playerId, challengeId, inputValue)
+        submitSpinner.hidden = true;
+        submitAnswerButton.disabled = false;
+
+        answer.innerHTML = "Your answer: " + inputValue;
+        messageInput.value = "";
     }
 }
-
-function parseJwt(token) {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-
-    return JSON.parse(jsonPayload);
-}
-
-async function createRoom(name) {
-    let response = await fetch(apiUrl + "rooms", {
-        method: "POST",
-        body: JSON.stringify({
-            "name": name,
-        }),
-        headers: {
-            "Authorization": getAuthDetails().idToken
-        }
-    });
-    if (!response.ok) {
-        alert("Could not create room")
-    }
-    debug(response.status)
-}
-
 
 async function handleCredentialResponse(resp) {
-    debug(parseJwt(resp.credential));
+    let credential = resp.credential;
     document.getElementById("authInfo").hidden = false;
 
-    let response = await fetch(apiUrl + "google-login", {
-        method: "POST",
-        body: resp.credential
-    })
-        
-    let body = await response.json()
-    if (!response.ok) {
-        alert("Could not sign in with google")
-        return;
+    let success = await loginUsingGoogleCredential(credential);
+    if (!success) {
+        return
     }
-    localStorage.setItem("authDetails", JSON.stringify(body));
     updateAuthInfoDiv();
     await updateRoomsList();
     if (getRoomId() != null) {
