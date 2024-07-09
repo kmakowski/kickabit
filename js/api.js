@@ -132,6 +132,51 @@ async function createRoom(name) {
     return true
 }
 
+async function createGame(name) {
+    let response = await fetch(apiUrl + "games", {
+        method: "POST",
+        body: JSON.stringify({
+            "name": name,
+        }),
+        headers: defaultHeaders()
+    });
+    if (!response.ok) {
+        notifyApiCallError("Could not create game")
+        return false
+    }
+    return true
+}
+
+async function deleteGame(GameId) {
+    const response = await fetch(apiUrl + "games/" + gameId, {
+        method: "DELETE",
+        headers: defaultHeaders()
+    });
+
+    if (!response.ok) {
+        notifyApiCallError("Could not delete game")
+        return false
+    }
+    
+    return true
+}
+
+async function getGamesList() {
+  let response = await fetch(apiUrl + "games", {
+    method: "GET",
+    /* body: JSON.stringify({
+      "name": name,
+    }),
+    */
+    headers: defaultHeaders()
+  });
+  if (!response.ok){
+    notifyApiCallError("Could not create room")
+    return null
+  }
+  return await response.json();
+}
+
 async function publishNextQuestion(roomId, secondsCount) {
     let response = await fetch(apiUrl + "rooms/" + roomId + "/set-next-challenge", {
         method: "POST",
