@@ -147,7 +147,7 @@ async function createGame(name) {
     return true
 }
 
-async function deleteGame(GameId) {
+async function deleteGame(gameId) {
     const response = await fetch(apiUrl + "games/" + gameId, {
         method: "DELETE",
         headers: defaultHeaders()

@@ -78,11 +78,11 @@ function getRoomId() {
 }
 
 function getGameId() {
-    const gameId = window.location.hash.substring(1);
-    if (gameId === "") {
+    const id = window.location.hash.substring(1);
+    if (id === "") {
         return null;
     } else {
-        return gameId;
+        return id;
     }
 }
 
@@ -119,11 +119,11 @@ async function updateGamesList() {
     document.getElementById("gamesList").innerHTML = "";
     for (const game of body.games) {
       document.getElementById("gamesList").innerHTML += 
-        "<div><a id = 'join-game-" + game.gameId + "' href='#" + game.gameId + "'>" + game.name + "</a><button id='delete-game-" + game.gameId + "'>X</button></div>";
+        "<div><a id = 'join-game-" + game.id + "' href='#" + game.id + "'>" + game.name + "</a><button id='delete-game-" + game.id + "'>X</button></div>";
     }
     for (const game of body.games) {
-      document.getElementById("delete-game-" + game.gameId).onclick = async function() {
-        await deleteGame(game.gameId)
+      document.getElementById("delete-game-" + game.id).onclick = async function() {
+        await deleteGame(game.id)
         await updateGamesList()
       } 
     }
