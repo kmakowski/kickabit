@@ -77,6 +77,15 @@ function getRoomId() {
     }
 }
 
+function getGameId() {
+    const id = window.location.hash.substring(1);
+    if (id === "") {
+        return null;
+    } else {
+        return id;
+    }
+}
+
 async function updateRoomsList() {
     let body = await getRoomsList();
     if (body == null) {
@@ -97,6 +106,28 @@ async function updateRoomsList() {
             }
         }
     }
+}
+
+async function updateGamesList() {
+  let body = await getGamesList();
+  if (body == null) {
+    return 1;
+  }
+  debug("Retrieved Games: " + body.games);
+
+  if (getGameId() == null) {
+    document.getElementById("gamesList").innerHTML = "";
+    for (const game of body.games) {
+      document.getElementById("gamesList").innerHTML += 
+        "<div><a id = 'join-game-" + game.id + "' href='#" + game.id + "'>" + game.name + "</a><button id='delete-game-" + game.id + "'>X</button></div>";
+    }
+    for (const game of body.games) {
+      document.getElementById("delete-game-" + game.id).onclick = async function() {
+        await deleteGame(game.id)
+        await updateGamesList()
+      } 
+    }
+  }
 }
 
 function updateRoomControls() {
@@ -126,6 +157,7 @@ async function init() {
     await authenticate(function () {
         updateAuthInfoDiv();
         updateRoomsList();
+        updateGamesList();
         document.getElementById("loginForm").hidden = true
         
     }, function () {
