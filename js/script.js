@@ -159,7 +159,7 @@ async function init() {
     document.getElementById("createNewGame").onclick = async function() {
         await createGame(gameTextbox.value);
         await updateGamesList()
-        textbox.value = ""
+        gameTextbox.value = ""
     }
 
     await authenticate(function () {
