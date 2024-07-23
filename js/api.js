@@ -133,18 +133,35 @@ async function createRoom(name) {
 }
 
 async function createGame(name) {
-    let response = await fetch(apiUrl + "games", {
-        method: "POST",
-        body: JSON.stringify({
-            "name": name,
-        }),
-        headers: defaultHeaders()
-    });
-    if (!response.ok) {
-        notifyApiCallError("Could not create game")
-        return false
-    }
-    return true
+  if (name.length <= 40 && /^[A-Za-z0-9]*$/.test(name)) { 
+    let challenges = [
+          {
+            "question": "How many breakfast plate pictures were posted in loki team chat?",
+            "answer": "77"
+          },
+          {
+            "question": "How many people contributed to UMV codebase?",
+            "answer": "112"
+          }
+        ]
+      let response = await fetch(apiUrl + "games", {
+          method: "POST",
+          body: JSON.stringify({
+              "name": name,
+              "challenges": challenges,
+          }),
+          headers: defaultHeaders()
+      });
+      if (!response.ok) {
+          notifyApiCallError("Could not create game")
+          return false
+      }
+      return true
+  } else {
+    notifyApiCallError("game name not allowed");
+    alert("Name of the game should not contain special characters or be longer than 40 letters")
+    return false
+  }
 }
 
 async function deleteGame(gameId) {

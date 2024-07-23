@@ -21,6 +21,20 @@
     <input id="newRoomName" type="text" placeholder="Name of your room">
     <button id="createNewRoom" type="submit">create</button>
 </div>
+<div id="roomsList" hidden>
+
+</div>
+<div id="gameCreation" hidden>
+    <h3>Create a new game</h3>
+    <input id="newGameName" type="text" placeholder="Name of your game">
+    <button id="createNewGame" type="submit">create</button>
+</div>
+<div id="gamesList">
+    <div class="game">
+        <a id="join-game-test" href="#">game-test</a>
+        <button class="btn" id="delete-game-test">X</button>
+    </div>
+</div>
 <div id="loginForm" hidden>
     <div>
         <input id="usernameInput" type="text" placeholder="Username">
@@ -85,15 +99,8 @@
     </select>
     <button id="sortBtn" class="btn btn-primary">Sort</button>
 </div>
-<div id="roomsList" hidden>
 
-</div>
-<div id="gamesList">
-  <div class="game">
-    <a id="join-game-test" href="#">game-test</a>
-    <button class="btn" id="delete-game-test">X</a>
-  </div>
-</div>
+
 <script type="text/javascript" src="/js/api.js" defer></script>
 <script type="text/javascript" src="/js/script.js" defer></script>
 
