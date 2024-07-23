@@ -185,7 +185,7 @@ async function init() {
         }
         updateAuthInfoDiv()
         document.getElementById("roomCreation").hidden = getRoomId() != null
-        document.getElementById("gameCreation").hidden = getGameId() != null
+        document.getElementById("gameCreation").hidden = getRoomId() != null
         document.getElementById("loginForm").hidden = true
         document.getElementById("roomsList").hidden = false
         document.getElementById("gamesList").hidden = false
@@ -202,6 +202,7 @@ async function init() {
         debug("No room selected")
         if (getAuthDetails() != null) {
             document.getElementById("roomCreation").hidden = false
+            document.getElementById("gameCreation").hidden = false
         }
         return
     }
