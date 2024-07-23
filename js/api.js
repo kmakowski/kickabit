@@ -133,10 +133,21 @@ async function createRoom(name) {
 }
 
 async function createGame(name) {
+  let challenges = [
+        {
+          "question": "How many breakfast plate pictures were posted in loki team chat?",
+          "answer": "77"
+        },
+        {
+          "question": "How many people contributed to UMV codebase?",
+          "answer": "112"
+        }
+      ]
     let response = await fetch(apiUrl + "games", {
         method: "POST",
         body: JSON.stringify({
             "name": name,
+            "challenges": challenges,
         }),
         headers: defaultHeaders()
     });

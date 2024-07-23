@@ -19,6 +19,8 @@ async function logout() {
     document.getElementById("loginForm").hidden = false;
     document.getElementById("roomsList").hidden = true;
     document.getElementById("roomCreation").hidden = true;
+    document.getElementById("gameCreation").hidden = true;
+
 }
 
 async function authenticate(onAuthenticated, onGuestUser) {
@@ -78,11 +80,11 @@ function getRoomId() {
 }
 
 function getGameId() {
-    const id = window.location.hash.substring(1);
-    if (id === "") {
+    const gameId = window.location.hash.substring(1);
+    if (gameId === "") {
         return null;
     } else {
-        return id;
+        return gameId;
     }
 }
 
@@ -153,6 +155,12 @@ async function init() {
         await updateRoomsList()
         textbox.value = ""
     }
+    const gameTextbox = document.querySelector("#newGameName");
+    document.getElementById("createNewGame").onclick = async function() {
+        await createGame(gameTextbox.value);
+        await updateGamesList()
+        textbox.value = ""
+    }
 
     await authenticate(function () {
         updateAuthInfoDiv();
@@ -177,8 +185,10 @@ async function init() {
         }
         updateAuthInfoDiv()
         document.getElementById("roomCreation").hidden = getRoomId() != null
+        document.getElementById("gameCreation").hidden = getGameId() != null
         document.getElementById("loginForm").hidden = true
         document.getElementById("roomsList").hidden = false
+        document.getElementById("gamesList").hidden = false
         document.getElementById("roomControls").hidden = getRoomId() == null
         await updateRoomsList()
     }
@@ -196,9 +206,21 @@ async function init() {
         return
     }
 
+    const gameId = getGameId();
+
+    document.getElementById("gamesList").hidden = false;
+    if (gameId == null) {
+        debug("No game selected")
+        if (getAuthDetails() != null) {
+            document.getElementById("gameCreation").hidden = false
+        }
+        return
+    }
+
     let players = []
     
     document.getElementById("roomsList").hidden = true;
+    document.getElementById("gamesList").hidden = true;
 
     const storedUserJson = localStorage.getItem(roomId);
     let storedUser = JSON.parse(storedUserJson);
@@ -560,8 +582,10 @@ async function handleCredentialResponse(resp) {
         updateRoomControls();
     } else {
         document.getElementById("roomCreation").hidden = false;
+        document.getElementById("gameCreation").hidden = false;
         document.getElementById("loginForm").hidden = true;
         document.getElementById("roomsList").hidden = false;
+        document.getElementById("gamesList").hidden = false;
     }
 }
 
