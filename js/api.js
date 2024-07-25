@@ -175,7 +175,7 @@ async function getGamesList() {
     headers: defaultHeaders()
   });
   if (!response.ok){
-    notifyApiCallError("Could not create room")
+    notifyApiCallError("Could not get games")
     return null
   }
   return await response.json();
