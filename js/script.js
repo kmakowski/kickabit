@@ -20,7 +20,49 @@ async function logout() {
     document.getElementById("roomsList").hidden = true;
     document.getElementById("roomCreation").hidden = true;
     document.getElementById("gameCreation").hidden = true;
+}
 
+const gameTextbox = document.querySelector("#newGameName");
+
+let game = {
+  "name": "placeholder name",
+  "challenges": []
+};
+
+let challenges = [];
+async function gameCreation() {
+  // document.getElementById("createNewQuestion").hidden = false;
+  game = {
+    "name": gameTextbox.value,
+    "challenges": challenges
+  }
+  await createGame(game);
+  gameTextbox.value = "";
+  await updateGamesList();
+}
+
+let questionCount = 0;
+
+function initiateQuestionCreation() {
+  questionCount += 1;
+  questionId = questionCount
+  document.getElementById("questionList").innerHTML += 
+  `<div id="${questionId}-questionCreation">
+    <input id="${questionId}-Name" type="text" placeholder="contents of your question"> <br/>
+    <input id="${questionId}-correctAnswer" type="text" placeholder="Answer to your question"><br/>
+    <input id="${questionId}-timeForAnswer" type="number" placeholder="time in seconds"><br/>
+    <input id="${questionId}-submitQuestion" type="submit" placeholder="add question">
+  </div> `;
+  document.getElementById(questionId + "-submitQuestion").onclick = () => { createAQuestion(questionId); }
+}
+
+function createAQuestion(questionId) {
+  let question = {
+    "question": document.getElementById(questionId + "-Name").value,
+    "answer": document.getElementById(questionId + "-correctAnswer").value,
+    "time": document.getElementById(questionId + "-timeForAnswer").value
+  }
+  challenges.push(question)
 }
 
 async function authenticate(onAuthenticated, onGuestUser) {
@@ -155,11 +197,13 @@ async function init() {
         await updateRoomsList()
         textbox.value = ""
     }
-    const gameTextbox = document.querySelector("#newGameName");
     document.getElementById("createNewGame").onclick = async function() {
-        await createGame(gameTextbox.value);
-        await updateGamesList()
-        gameTextbox.value = ""
+      await gameCreation(); 
+      await updateGamesList()
+    }
+
+    document.getElementById("createNewQuestion").onclick = async function() {
+      await initiateQuestionCreation()
     }
 
     await authenticate(function () {
@@ -186,6 +230,8 @@ async function init() {
         updateAuthInfoDiv()
         document.getElementById("roomCreation").hidden = getRoomId() != null
         document.getElementById("gameCreation").hidden = getRoomId() != null
+        document.getElementById("addQuestionButton").hidden = true;
+
         document.getElementById("loginForm").hidden = true
         document.getElementById("roomsList").hidden = false
         document.getElementById("gamesList").hidden = false
