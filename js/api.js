@@ -132,24 +132,11 @@ async function createRoom(name) {
     return true
 }
 
-async function createGame(name) {
-  if (name.length <= 40 && /^[A-Za-z0-9]*$/.test(name)) { 
-    let challenges = [
-          {
-            "question": "How many breakfast plate pictures were posted in loki team chat?",
-            "answer": "77"
-          },
-          {
-            "question": "How many people contributed to UMV codebase?",
-            "answer": "112"
-          }
-        ]
+async function createGame(game) {
+  if (game.name.length <= 40 && /^[A-Za-z0-9]*$/.test(game.name)) { 
       let response = await fetch(apiUrl + "games", {
           method: "POST",
-          body: JSON.stringify({
-              "name": name,
-              "challenges": challenges,
-          }),
+          body: JSON.stringify(game),
           headers: defaultHeaders()
       });
       if (!response.ok) {
@@ -188,7 +175,7 @@ async function getGamesList() {
     headers: defaultHeaders()
   });
   if (!response.ok){
-    notifyApiCallError("Could not create room")
+    notifyApiCallError("Could not get games")
     return null
   }
   return await response.json();
